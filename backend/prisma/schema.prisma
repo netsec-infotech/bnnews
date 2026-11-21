@@ -1,0 +1,667 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  REPORTER
+  AD_MANAGER
+  SOCIAL_MEDIA_MANAGER
+  TEAM_MANAGER
+}
+
+enum NewsStatus {
+  PENDING
+  DRAFT
+  PUBLISHED
+  REJECTED
+}
+
+enum SourceStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+enum AdCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  EXPIRED
+}
+
+enum AdType {
+  BANNER
+  SIDEBAR
+  POPUP
+  STICKY
+  IN_ARTICLE
+  VIDEO_AD
+  SPONSORED_NEWS
+  HOMEPAGE_FEATURED
+  MOBILE
+}
+
+enum AdEventType {
+  IMPRESSION
+  CLICK
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum VideoSource {
+  YOUTUBE
+  INSTAGRAM
+  FACEBOOK
+  DIRECT_UPLOAD
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      Role      @default(REPORTER)
+  avatar    String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  news       News[]
+  auditLogs  AuditLog[]
+  videos     Video[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  nameGu      String   @map("name_gu")
+  slug        String   @unique
+  description String?
+  icon        String?
+  image       String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  seoTitle    String?  @map("seo_title")
+  seoDesc     String?  @map("seo_desc")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  news        News[]
+  rssSources  RssSource[]
+
+  @@index([order])
+  @@index([slug])
+  @@map("news_categories")
+}
+
+model RssSource {
+  id                 String       @id @default(uuid())
+  name               String
+  feedUrl            String       @unique @map("feed_url")
+  websiteUrl         String?      @map("website_url")
+  defaultCategoryId  String?      @map("default_category_id")
+  collectionInterval Int          @default(30) @map("collection_interval") // in minutes
+  status             SourceStatus @default(ACTIVE)
+  language           String       @default("gu")
+  attributionName    String?      @map("attribution_name")
+  lastFetchTime      DateTime?    @map("last_fetch_time")
+  lastSuccessTime    DateTime?    @map("last_success_time")
+  totalArticlesCount Int          @default(0) @map("total_articles_count")
+  lastError          String?      @map("last_error")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  defaultCategory    Category?    @relation(fields: [defaultCategoryId], references: [id], onDelete: SetNull)
+  sourceItems        NewsSourceItem[]
+  news               News[]
+  collectionLogs     RssLog[]
+
+  @@map("news_sources")
+}
+
+model NewsSourceItem {
+  id             String    @id @default(uuid())
+  sourceId       String    @map("source_id")
+  sourceGuid     String    @map("source_guid")
+  sourceUrl      String    @map("source_url")
+  title          String
+  description    String?
+  content        String?
+  author         String?
+  rawImageUrl    String?   @map("raw_image_url")
+  publishedDate  DateTime? @map("published_date")
+  rawMetadata    Json?     @map("raw_metadata")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  source         RssSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  newsArticle    News?
+
+  @@unique([sourceId, sourceGuid])
+  @@index([sourceUrl])
+  @@map("news_source_items")
+}
+
+model News {
+  id              String          @id @default(uuid())
+  title           String
+  titleGu         String          @map("title_gu")
+  slug            String          @unique
+  description     String?
+  descriptionGu   String?         @map("description_gu")
+  content         String          @db.Text
+  featuredImage   String?         @map("featured_image")
+  additionalImages String[]       @default([]) @map("additional_images")
+  categoryId      String          @map("category_id")
+  sourceId        String?         @map("source_id")
+  sourceItemId    String?         @unique @map("source_item_id")
+  sourceUrl       String?         @map("source_url")
+  sourceGuid      String?         @map("source_guid")
+  authorId        String?         @map("author_id")
+  status          NewsStatus      @default(PENDING)
+  isBreaking      Boolean         @default(false) @map("is_breaking")
+  isTrending      Boolean         @default(false) @map("is_trending")
+  isFeatured      Boolean         @default(false) @map("is_featured")
+  seoTitle        String?         @map("seo_title")
+  seoDescription  String?         @map("seo_description")
+  tags            String[]        @default([])
+  viewsCount      Int             @default(0) @map("views_count")
+  publishedAt     DateTime?       @map("published_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  category        Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  source          RssSource?      @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sourceItem      NewsSourceItem? @relation(fields: [sourceItemId], references: [id], onDelete: SetNull)
+  author          User?           @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  breakingItem    BreakingNews?
+  trendingItem    TrendingNews?
+
+  @@index([status, publishedAt])
+  @@index([categoryId, status])
+  @@index([slug])
+  @@index([isBreaking, status])
+  @@index([isTrending, status])
+  @@index([isFeatured, status])
+  @@map("news")
+}
+
+model BreakingNews {
+  id         String    @id @default(uuid())
+  newsId     String    @unique @map("news_id")
+  tickerText String?   @map("ticker_text")
+  order      Int       @default(0)
+  isActive   Boolean   @default(true) @map("is_active")
+  startTime  DateTime? @map("start_time")
+  expiryTime DateTime? @map("expiry_time")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  news       News      @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@index([isActive, order])
+  @@map("breaking_news")
+}
+
+model TrendingNews {
+  id        String   @id @default(uuid())
+  newsId    String   @unique @map("news_id")
+  priority  Int      @default(0)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  news      News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@index([isActive, priority])
+  @@map("trending_news")
+}
+
+model Media {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  url          String
+  thumbnailUrl String?  @map("thumbnail_url")
+  altText      String?  @map("alt_text")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("media")
+}
+
+model RssLog {
+  id           String    @id @default(uuid())
+  sourceId     String    @map("source_id")
+  status       LogLevel  @default(INFO)
+  message      String
+  itemsFetched Int       @default(0) @map("items_fetched")
+  itemsSaved   Int       @default(0) @map("items_saved")
+  details      Json?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  source       RssSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, createdAt])
+  @@map("news_logs")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  targetType String   @map("target_type")
+  targetId   String?  @map("target_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+  @@map("news_audit_logs")
+}
+
+model WebsiteSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.Text
+  group       String   @default("general")
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("news_settings")
+}
+
+// ==========================================
+// ADVERTISEMENT SYSTEM (Phase 3)
+// ==========================================
+
+model Advertiser {
+  id            String       @id @default(uuid())
+  companyName   String       @map("company_name")
+  contactPerson String       @map("contact_person")
+  phone         String
+  email         String
+  gstNumber     String?      @map("gst_number")
+  address       String?
+  notes         String?
+  isActive      Boolean      @default(true) @map("is_active")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  campaigns     AdCampaign[]
+  invoices      AdInvoice[]
+
+  @@map("advertisers")
+}
+
+model AdCampaign {
+  id            String             @id @default(uuid())
+  advertiserId  String             @map("advertiser_id")
+  name          String
+  budget        Float?             @default(0)
+  agreedPrice   Float?             @map("agreed_price")
+  startDate     DateTime           @map("start_date")
+  endDate       DateTime           @map("end_date")
+  status        AdCampaignStatus   @default(ACTIVE)
+  targetDevices String[]           @default(["DESKTOP", "MOBILE"]) @map("target_devices")
+  targetPages   String[]           @default(["*"]) @map("target_pages")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  advertiser    Advertiser         @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  creatives     AdCreative[]
+  placements    AdCampaignPlacement[]
+  events        AdEvent[]
+  popups        AdPopup[]
+  invoices      AdInvoice[]
+
+  @@index([status, startDate, endDate])
+  @@map("ad_campaigns")
+}
+
+model AdCreative {
+  id              String      @id @default(uuid())
+  campaignId      String      @map("campaign_id")
+  name            String
+  adType          AdType      @default(BANNER) @map("ad_type")
+  desktopCreative String?     @map("desktop_creative")
+  mobileCreative  String?     @map("mobile_creative")
+  videoCreative   String?     @map("video_creative")
+  landingPageUrl  String      @map("landing_page_url")
+  altText         String?     @map("alt_text")
+  duration        String?     @default("0:15")
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  campaign        AdCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, adType])
+  @@map("ad_creatives")
+}
+
+model AdPlacement {
+  id                String               @id @default(uuid())
+  identifier        String               @unique // e.g., "homepage_above_navigation"
+  name              String
+  pageGroup         String               @map("page_group") // "HOMEPAGE", "NEWS_DETAIL", etc.
+  desktopDimensions String?              @map("desktop_dimensions")
+  mobileDimensions  String?              @map("mobile_dimensions")
+  maxFileSizeKb     Int                  @default(500) @map("max_file_size_kb")
+  acceptedFormats   String[]             @default(["IMAGE", "GIF", "VIDEO"]) @map("accepted_formats")
+  isActive          Boolean              @default(true) @map("is_active")
+  rotationPriority  Int                  @default(1) @map("rotation_priority")
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  campaigns         AdCampaignPlacement[]
+  events            AdEvent[]
+
+  @@index([pageGroup, isActive])
+  @@map("ad_placements")
+}
+
+model AdCampaignPlacement {
+  id          String      @id @default(uuid())
+  campaignId  String      @map("campaign_id")
+  placementId String      @map("placement_id")
+  priority    Int         @default(1)
+  isActive    Boolean     @default(true) @map("is_active")
+
+  campaign    AdCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  placement   AdPlacement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, placementId])
+  @@map("ad_campaign_placements")
+}
+
+model AdEvent {
+  id          String       @id @default(uuid())
+  campaignId  String       @map("campaign_id")
+  placementId String?      @map("placement_id")
+  eventType   AdEventType  @map("event_type")
+  ipAddress   String?      @map("ip_address")
+  userAgent   String?      @map("user_agent")
+  deviceType  String?      @default("DESKTOP") @map("device_type")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  campaign    AdCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  placement   AdPlacement? @relation(fields: [placementId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, eventType, createdAt])
+  @@index([placementId, eventType, createdAt])
+  @@map("ad_events")
+}
+
+model AdPopup {
+  id                 String      @id @default(uuid())
+  campaignId         String      @map("campaign_id")
+  heading            String
+  headingGu          String?     @map("heading_gu")
+  description        String?
+  descriptionGu      String?     @map("description_gu")
+  mediaUrl           String      @map("media_url")
+  ctaButton          String      @default("વધુ વિગતો જુઓ") @map("cta_button")
+  destinationUrl     String      @map("destination_url")
+  delaySeconds       Int         @default(3) @map("delay_seconds")
+  frequencyCap       String      @default("ONCE_PER_SESSION") @map("frequency_cap")
+  maxImpressions     Int?        @map("max_impressions")
+  currentImpressions Int         @default(0) @map("current_impressions")
+  isActive           Boolean     @default(true) @map("is_active")
+  targetDevices      String[]    @default(["DESKTOP", "MOBILE"]) @map("target_devices")
+  createdAt          DateTime    @default(now()) @map("created_at")
+
+  campaign           AdCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("ad_popups")
+}
+
+model AdInvoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique @map("invoice_number")
+  advertiserId  String        @map("advertiser_id")
+  campaignId    String?       @map("campaign_id")
+  amount        Float
+  gstRate       Float         @default(18.0) @map("gst_rate")
+  gstAmount     Float         @map("gst_amount")
+  totalAmount   Float         @map("total_amount")
+  status        InvoiceStatus @default(PENDING)
+  dueDate       DateTime      @map("due_date")
+  paidAt        DateTime?     @map("paid_at")
+  pdfUrl        String?       @map("pdf_url")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  advertiser    Advertiser    @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  campaign      AdCampaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  payments      AdPayment[]
+
+  @@index([advertiserId, status])
+  @@map("ad_invoices")
+}
+
+model AdPayment {
+  id             String    @id @default(uuid())
+  invoiceId      String    @map("invoice_id")
+  amount         Float
+  paymentMethod  String    @map("payment_method") // UPI, NEFT, CHEQUE, CASH
+  transactionRef String?   @map("transaction_ref")
+  paidAt         DateTime  @default(now()) @map("paid_at")
+  notes          String?
+
+  invoice        AdInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("ad_payments")
+}
+
+// ==========================================
+// SOCIAL MEDIA INTEGRATION (Phase 4)
+// ==========================================
+
+model SocialAccount {
+  id             String    @id @default(uuid())
+  platform       String    // "FACEBOOK", "INSTAGRAM", "YOUTUBE"
+  accountId      String?   @map("account_id")
+  accountName    String?   @map("account_name")
+  pageId         String?   @map("page_id")
+  pageName       String?   @map("page_name")
+  profilePicture String?   @map("profile_picture")
+  accessToken    String?   @db.Text @map("access_token")
+  refreshToken   String?   @db.Text @map("refresh_token")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  isConnected    Boolean   @default(false) @map("is_connected")
+  status         String    @default("DISCONNECTED") // "ACTIVE", "EXPIRED", "DISCONNECTED", "ERROR"
+  lastSyncedAt   DateTime? @map("last_synced_at")
+  lastError      String?   @db.Text @map("last_error")
+  metadata       Json?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@unique([platform, pageId])
+  @@map("social_accounts")
+}
+
+model SocialPost {
+  id           String    @id @default(uuid())
+  platform     String    // "INSTAGRAM", "FACEBOOK", "YOUTUBE"
+  postId       String?   @map("post_id")
+  postUrl      String    @map("post_url")
+  caption      String?   @db.Text
+  mediaUrl     String?   @map("media_url")
+  thumbnailUrl String?   @map("thumbnail_url")
+  mediaType    String?   @default("POST") @map("media_type") // "POST", "VIDEO", "REEL", "SHORTS"
+  authorName   String?   @default("BN NEWS ગુજરાતી") @map("author_name")
+  isActive     Boolean   @default(true) @map("is_active")
+  publishedAt  DateTime? @map("published_at")
+  metadata     Json?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([platform, isActive])
+  @@map("social_posts")
+}
+
+model SocialSyncLog {
+  id           String   @id @default(uuid())
+  platform     String
+  status       String   // "SUCCESS", "FAILED"
+  message      String
+  itemsFetched Int      @default(0) @map("items_fetched")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([platform, createdAt])
+  @@map("social_sync_logs")
+}
+
+// ==========================================
+// VIDEO & REELS CMS (Phase 5)
+// ==========================================
+
+model VideoCategory {
+  id        String   @id @default(uuid())
+  name      String
+  nameGu    String   @map("name_gu")
+  slug      String   @unique
+  order     Int      @default(0)
+  isActive  Boolean  @default(true) @map("is_active")
+
+  videos    Video[]
+
+  @@map("video_categories")
+}
+
+model Video {
+  id            String        @id @default(uuid())
+  title         String
+  titleGu       String        @map("title_gu")
+  slug          String        @unique
+  description   String?       @db.Text
+  videoSource   VideoSource   @default(YOUTUBE) @map("video_source")
+  videoUrl      String        @map("video_url")
+  videoFile     String?       @map("video_file")
+  thumbnailUrl  String?       @map("thumbnail_url")
+  categoryId    String?       @map("category_id")
+  authorId      String?       @map("author_id")
+  duration      String?       @default("0:30")
+  isFeatured    Boolean       @default(false) @map("is_featured")
+  isTrending    Boolean       @default(false) @map("is_trending")
+  isReel        Boolean       @default(false) @map("is_reel")
+  showOnHome    Boolean       @default(true) @map("show_on_home")
+  showOnVideos  Boolean       @default(true) @map("show_on_videos")
+  showOnReels   Boolean       @default(false) @map("show_on_reels")
+  viewsCount    Int           @default(0) @map("views_count")
+  publishedAt   DateTime      @default(now()) @map("published_at")
+  status        NewsStatus    @default(PUBLISHED)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  category      VideoCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author        User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  views         VideoView[]
+
+  @@index([isReel, status, publishedAt])
+  @@index([isFeatured, status])
+  @@index([showOnHome, status])
+  @@map("videos")
+}
+
+model VideoView {
+  id        String   @id @default(uuid())
+  videoId   String   @map("video_id")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, createdAt])
+  @@map("video_views")
+}
+
+model YouTubeLiveSetting {
+  id                 String   @id @default(uuid())
+  channelId          String?  @map("channel_id")
+  apiKey             String?  @map("api_key")
+  liveVideoId        String?  @map("live_video_id")
+  isLive             Boolean  @default(true) @map("is_live")
+  upcomingStreamId   String?  @map("upcoming_stream_id")
+  streamTitle        String?  @default("BN NEWS ગુજરાતી - LIVE 24x7 પ્રસારણ") @map("stream_title")
+  streamThumbnail    String?  @map("stream_thumbnail")
+  fallbackEmbedUrl   String?  @default("https://www.youtube.com/embed/live_stream?channel=") @map("fallback_embed_url")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("youtube_live_settings")
+}
+
+// ==========================================
+// OUR TEAM CMS (Phase 6)
+// ==========================================
+
+model TeamDepartment {
+  id        String       @id @default(uuid())
+  name      String
+  nameGu    String       @map("name_gu")
+  slug      String       @unique
+  order     Int          @default(0)
+  isActive  Boolean      @default(true) @map("is_active")
+
+  members   TeamMember[]
+
+  @@index([order])
+  @@map("team_departments")
+}
+
+model TeamMember {
+  id              String         @id @default(uuid())
+  name            String
+  nameGu          String         @map("name_gu")
+  slug            String         @unique
+  photoUrl        String?        @map("photo_url")
+  designation     String
+  designationGu   String         @map("designation_gu")
+  departmentId    String         @map("department_id")
+  bio             String?        @db.Text
+  bioGu           String?        @db.Text @map("bio_gu")
+  experienceYears Int            @default(5) @map("experience_years")
+  district        String?        @default("વડોદરા")
+  languages       String[]       @default(["ગુજરાતી", "હિન્દી", "અંગ્રેજી"])
+  email           String?
+  phone           String?
+  facebookUrl     String?        @map("facebook_url")
+  instagramUrl    String?        @map("instagram_url")
+  linkedinUrl     String?        @map("linkedin_url")
+  youtubeUrl      String?        @map("youtube_url")
+  displayOrder    Int            @default(0) @map("display_order")
+  isFeatured      Boolean        @default(false) @map("is_featured")
+  isActive        Boolean        @default(true) @map("is_active")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  department      TeamDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@index([departmentId, displayOrder])
+  @@index([isFeatured, isActive])
+  @@map("team_members")
+}
