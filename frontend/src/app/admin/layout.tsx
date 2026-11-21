@@ -27,17 +27,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user]);
 
+  // Client-side authentication guard (Must be declared before any conditional return)
+  useEffect(() => {
+    if (pathname !== '/admin/login' && !loading && !user) {
+      router.push('/admin/login');
+    }
+  }, [user, loading, router, pathname]);
+
   // If on login page, render clean layout without sidebar
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
-
-  // Client-side authentication guard
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/admin/login');
-    }
-  }, [user, loading, router]);
 
   if (loading) {
     return (

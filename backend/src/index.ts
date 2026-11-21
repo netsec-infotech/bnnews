@@ -18,6 +18,9 @@ import { startRssCronScheduler } from './workers/rssWorker.js';
 
 const app = express();
 
+// Trust reverse proxy (Nginx) for secure cookies and rate-limiting
+app.set('trust proxy', 1);
+
 // Security Headers
 app.use(
   helmet({
@@ -28,7 +31,17 @@ app.use(
 // CORS configuration
 app.use(
   cors({
-    origin: [config.frontendUrl, 'http://localhost:3000', 'https://bnnews.in', 'https://www.bnnews.in', 'https://admin.bnnews.in'],
+    origin: [
+      config.frontendUrl,
+      'http://localhost:3000',
+      'http://localhost:3100',
+      'https://bnnewsgujarati.com',
+      'https://www.bnnewsgujarati.com',
+      'https://api.bnnewsgujarati.com',
+      'https://bnnews.in',
+      'https://www.bnnews.in',
+      'https://admin.bnnews.in',
+    ].filter(Boolean),
     credentials: true,
   })
 );
