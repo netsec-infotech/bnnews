@@ -17,20 +17,33 @@ const categorySchema = z.object({
   isActive: z.boolean().default(true),
   seoTitle: z.string().optional().nullable(),
   seoDesc: z.string().optional().nullable(),
+  parentId: z.string().optional().nullable(),
+  showInNavbar: z.boolean().default(true),
+  showOnHome: z.boolean().default(true),
+  isSubmenu: z.boolean().default(false),
+  openInNewTab: z.boolean().default(false),
 });
 
 export async function getCategories(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const categories = await prisma.category.findMany({
       include: {
+        parent: {
+          select: { id: true, name: true, nameGu: true, slug: true },
+        },
+        children: {
+          select: { id: true, name: true, nameGu: true, slug: true, order: true, showInNavbar: true },
+          orderBy: { order: 'asc' },
+        },
         _count: {
           select: {
             news: true,
             rssSources: true,
+            children: true,
           },
         },
       },
-      orderBy: { order: 'asc' },
+      orderBy: [{ order: 'asc' }, { nameGu: 'asc' }],
     });
 
     res.json({ success: true, data: categories });
@@ -62,6 +75,14 @@ export async function createCategory(req: AuthenticatedRequest, res: Response, n
         isActive: data.isActive,
         seoTitle: data.seoTitle,
         seoDesc: data.seoDesc,
+        parentId: data.parentId || null,
+        showInNavbar: data.showInNavbar ?? true,
+        showOnHome: data.showOnHome ?? true,
+        isSubmenu: Boolean(data.parentId || data.isSubmenu),
+        openInNewTab: data.openInNewTab ?? false,
+      },
+      include: {
+        parent: true,
       },
     });
 
@@ -74,7 +95,7 @@ export async function createCategory(req: AuthenticatedRequest, res: Response, n
       ipAddress: req.ip,
     });
 
-    res.status(201).json({ success: true, message: 'કેટેગરી ઉમેરાઈ ગઈ', data: category });
+    res.status(201).json({ success: true, message: 'કેટેગરી સફળતાપૂર્વક ઉમેરાઈ ગઈ', data: category });
   } catch (error) {
     next(error);
   }
@@ -84,6 +105,11 @@ export async function updateCategory(req: AuthenticatedRequest, res: Response, n
   try {
     const { id } = req.params;
     const data = categorySchema.partial().parse(req.body);
+
+    if (data.parentId && data.parentId === id) {
+      res.status(400).json({ success: false, message: 'કેટેગરી પોતે પોતાની પેરન્ટ હોઈ શકે નહીં.' });
+      return;
+    }
 
     const category = await prisma.category.update({
       where: { id },
@@ -98,6 +124,15 @@ export async function updateCategory(req: AuthenticatedRequest, res: Response, n
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.seoTitle !== undefined && { seoTitle: data.seoTitle }),
         ...(data.seoDesc !== undefined && { seoDesc: data.seoDesc }),
+        ...(data.parentId !== undefined && { parentId: data.parentId || null }),
+        ...(data.showInNavbar !== undefined && { showInNavbar: data.showInNavbar }),
+        ...(data.showOnHome !== undefined && { showOnHome: data.showOnHome }),
+        ...(data.isSubmenu !== undefined && { isSubmenu: data.isSubmenu }),
+        ...(data.openInNewTab !== undefined && { openInNewTab: data.openInNewTab }),
+      },
+      include: {
+        parent: true,
+        children: true,
       },
     });
 
@@ -134,6 +169,12 @@ export async function deleteCategory(req: AuthenticatedRequest, res: Response, n
       return;
     }
 
+    // Unlink any children first
+    await prisma.category.updateMany({
+      where: { parentId: id },
+      data: { parentId: null },
+    });
+
     await prisma.category.delete({ where: { id } });
 
     await logAuditAction({
@@ -147,5 +188,48 @@ export async function deleteCategory(req: AuthenticatedRequest, res: Response, n
     res.json({ success: true, message: 'કેટેગરી કાઢી નાખવામાં આવી' });
   } catch (error) {
     next(error);
+  }
+}
+
+/**
+ * Public dynamic navigation menu tree
+ */
+export async function getPublicNavigation(req: any, res: Response): Promise<void> {
+  try {
+    // Fetch all active categories that are set to show in navbar
+    const categories = await prisma.category.findMany({
+      where: {
+        isActive: true,
+        showInNavbar: true,
+      },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        nameGu: true,
+        slug: true,
+        parentId: true,
+        order: true,
+        icon: true,
+        isSubmenu: true,
+        openInNewTab: true,
+      },
+    });
+
+    // Build hierarchical tree
+    const rootItems = categories.filter((c) => !c.parentId);
+    const tree = rootItems.map((parent) => {
+      const children = categories.filter((c) => c.parentId === parent.id);
+      return {
+        ...parent,
+        hasSubmenu: children.length > 0,
+        children,
+      };
+    });
+
+    res.json({ success: true, data: tree });
+  } catch (error: any) {
+    console.error('getPublicNavigation error:', error);
+    res.status(500).json({ success: false, message: 'નેવિગેશન મેનુ લોડ કરવામાં ક્ષતિ આવી.' });
   }
 }

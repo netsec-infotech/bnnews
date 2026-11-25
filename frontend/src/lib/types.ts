@@ -44,8 +44,16 @@ export interface Category {
   isActive: boolean;
   seoTitle?: string;
   seoDesc?: string;
+  parentId?: string;
+  parent?: Category;
+  children?: Category[];
+  showInNavbar?: boolean;
+  showOnHome?: boolean;
+  isSubmenu?: boolean;
+  openInNewTab?: boolean;
   _count?: {
     news: number;
+    children?: number;
   };
 }
 
@@ -107,6 +115,19 @@ export interface NewsArticle {
     name: string;
     avatar?: string;
   };
+  reporterId?: string;
+  reporter?: Reporter;
+  contentType?: 'ARTICLE' | 'VIDEO' | 'REEL';
+  videoUrl?: string;
+  subCategoryId?: string;
+  originalTitleGu?: string;
+  originalDescriptionGu?: string;
+  originalContent?: string;
+  contentBlocks?: any[];
+  aiHistory?: any[];
+  rejectionReason?: string;
+  approvedAt?: string;
+  approvedById?: string;
   status: NewsStatus;
   isBreaking: boolean;
   isTrending: boolean;
@@ -178,14 +199,23 @@ export interface DashboardData {
     trendingNews?: number;
     todayNews: number;
     activeSources: number;
+    totalViews?: number;
+    activeReporters?: number;
+    totalVideos?: number;
   };
-  latestImported: NewsArticle[];
-  recentlyPublished: NewsArticle[];
-  recentLogs: RssLogItem[];
-  failedSources: RssSource[];
+  latestImported?: NewsArticle[];
+  recentlyPublished?: NewsArticle[];
+  recentSubmissions?: any[];
+  recentLogs?: RssLogItem[];
+  failedSources?: RssSource[];
   publicationChart?: { date: string; count: number }[];
   categoryStats?: { name: string; slug: string; count: number; percentage: number }[];
   trendPoints?: { label: string; value: number }[];
+  trend24h?: { time: string; readers: number; visits: number }[];
+  dailyGrowth?: { day: string; articles: number; views: number }[];
+  trafficSources?: { source: string; percent: number; count: number; color: string }[];
+  deviceBreakdown?: { device: string; percent: number; color: string }[];
+  topReporters?: any[];
   sevenDaysActivity?: {
     newsAdded: number;
     rssImported: number;
@@ -203,6 +233,8 @@ export interface MediaItem {
   size: number;
   url: string;
   thumbnailUrl?: string;
+  width?: number;
+  height?: number;
   altText?: string;
   createdAt: string;
 }
@@ -456,3 +488,57 @@ export interface TeamMember {
   isFeatured: boolean;
   isActive: boolean;
 }
+
+// ==========================================
+// REPORTER TYPES (Module 1)
+// ==========================================
+
+export interface Reporter {
+  id: string;
+  name: string;
+  slug: string;
+  designation: string;
+  profileImage?: string;
+  biography?: string;
+  location?: string;
+  email?: string;
+  phone?: string;
+  experience?: string;
+  languages: string[];
+  specialization?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    youtube?: string;
+    linkedin?: string;
+  };
+  status: 'ACTIVE' | 'INACTIVE';
+  isFeatured: boolean;
+  joiningDate?: string;
+  news?: NewsArticle[];
+  createdAt: string;
+  updatedAt?: string;
+  _count?: {
+    news: number;
+  };
+}
+
+// ==========================================
+// CONTACT ENQUIRY TYPES (Module 10)
+// ==========================================
+
+export interface ContactEnquiry {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  enquiryType: 'GENERAL' | 'NEWS_SUBMISSION' | 'ADVERTISEMENT' | 'REPORTER_CAREER' | 'PARTNERSHIP' | 'OTHER';
+  subject: string;
+  message: string;
+  status: 'PENDING' | 'READ' | 'REPLIED' | 'ARCHIVED';
+  internalNotes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+

@@ -27,22 +27,62 @@ import {
   recordVideoView,
 } from '../controllers/videoCMSController.js';
 
-// Phase 6: Public Team Showcase
+// Phase 6: Our Team Showcase
 import {
   getPublicTeam,
   getPublicTeamMemberBySlug,
 } from '../controllers/teamCMSController.js';
 
+// Module 1: Public Reporters & Admin Fallbacks
+import {
+  getPublicReporters,
+  getPublicReporterBySlug,
+  getReporterById,
+  createReporter,
+  updateReporter,
+  toggleReporterStatus,
+  deleteReporter,
+} from '../controllers/reporterController.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
+import { Role } from '@prisma/client';
+
+// Module 7: Dynamic Navigation Hierarchy
+import { getPublicNavigation } from '../controllers/adminCategoryController.js';
+
+// Module 10: Contact Submission
+import { submitContactEnquiry } from '../controllers/contactController.js';
+
 const router = Router();
 
 // News Endpoints
 router.get('/news', getPublicNews);
+router.get('/news/latest', getPublicNews);
+router.get('/news/videos', getPublicVideos);
+router.get('/news/reels', getPublicReels);
 router.get('/news/:slug', getNewsBySlug);
 router.get('/categories', getPublicCategories);
 router.get('/categories/:slug/news', getPublicNews);
 router.get('/breaking-news', getBreakingNews);
 router.get('/trending', getTrendingNews);
 router.get('/settings', getPublicSettings);
+
+// Module 7: Dynamic Navigation Tree
+router.get('/navigation', getPublicNavigation);
+
+// Module 1: Public Reporters
+router.get('/reporters', getPublicReporters);
+router.get('/reporters/:slug', getPublicReporterBySlug);
+// Safe Fallbacks for Reporter Admin Operations when accessed without /admin prefix
+router.post('/reporters', authenticate, requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), createReporter);
+router.put('/reporters/:id', authenticate, requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), updateReporter);
+router.patch('/reporters/:id/status', authenticate, requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), toggleReporterStatus);
+router.patch('/reporters/:id/toggle-status', authenticate, requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), toggleReporterStatus);
+router.delete('/reporters/:id', authenticate, requireRole(Role.SUPER_ADMIN, Role.ADMIN), deleteReporter);
+
+// Module 10: Contact Form Submission
+router.post('/contact/submit', submitContactEnquiry);
+router.post('/contact/enquiry', submitContactEnquiry);
+router.post('/public/contact/enquiry', submitContactEnquiry);
 
 // Advertisement Serving & Analytics
 router.get('/ads/slot/:placement', getSlotAd);

@@ -137,13 +137,18 @@ export default function CreateVideoPage() {
           </div>
 
           <div>
-            <label className="block font-bold text-gray-700 mb-1">ટૂંકી વિગત (Description)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block font-bold text-gray-700">
+                સબટાઈટલ / ટૂંકી વિગત (Subtitle / Short Description)
+              </label>
+              <span className="text-[11px] text-gray-400">વીડિયો / રીલ હેઠળ પ્રદર્શિત થશે</span>
+            </div>
             <textarea
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="વીડિયો વિશે ટૂંકી માહિતી..."
-              className="w-full p-2.5 rounded-xl border border-gray-300 focus:outline-none focus:border-primary"
+              placeholder="વીડિયો અથવા રીલ માટે સબટાઈટલ / સંક્ષિપ્ત વિગત લખો..."
+              className="w-full p-2.5 rounded-xl border border-gray-300 focus:outline-none focus:border-primary text-xs leading-relaxed"
             />
           </div>
 

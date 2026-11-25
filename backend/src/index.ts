@@ -65,8 +65,18 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth/login', authLimiter);
 
-// Serve Static Uploads
-app.use('/uploads', express.static(config.uploadDir));
+// Serve Static Uploads with Cross-Origin headers
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(config.uploadDir),
+  express.static(path.join(process.cwd(), 'uploads')),
+  express.static(path.join(process.cwd(), 'backend', 'uploads'))
+);
 
 // Health Check
 app.get('/api/health', (req, res) => {

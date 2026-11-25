@@ -11,10 +11,15 @@ export async function getPublicNews(req: Request, res: Response, next: NextFunct
     const categorySlug = req.query.category as string | undefined;
     const search = req.query.search as string | undefined;
     const isFeatured = req.query.featured === 'true' ? true : undefined;
+    const contentType = req.query.contentType as string | undefined;
 
     const where: any = {
       status: NewsStatus.PUBLISHED,
     };
+
+    if (contentType) {
+      where.contentType = contentType;
+    }
 
     if (categorySlug) {
       where.category = { slug: categorySlug };
@@ -53,12 +58,22 @@ export async function getPublicNews(req: Request, res: Response, next: NextFunct
           isBreaking: true,
           isTrending: true,
           isFeatured: true,
+          contentType: true,
           category: {
             select: {
               id: true,
               name: true,
               nameGu: true,
               slug: true,
+            },
+          },
+          reporter: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              designation: true,
+              profileImage: true,
             },
           },
           author: {
@@ -108,6 +123,19 @@ export async function getNewsBySlug(req: Request, res: Response, next: NextFunct
       },
       include: {
         category: true,
+        reporter: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            designation: true,
+            profileImage: true,
+            biography: true,
+            location: true,
+            experience: true,
+            socialLinks: true,
+          },
+        },
         author: {
           select: {
             id: true,

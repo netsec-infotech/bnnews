@@ -105,14 +105,22 @@ model Category {
   isActive    Boolean  @default(true) @map("is_active")
   seoTitle    String?  @map("seo_title")
   seoDesc     String?  @map("seo_desc")
+  parentId    String?  @map("parent_id")
+  showInNavbar Boolean @default(true) @map("show_in_navbar")
+  showOnHome  Boolean  @default(true) @map("show_on_home")
+  isSubmenu   Boolean  @default(false) @map("is_submenu")
+  openInNewTab Boolean @default(false) @map("open_in_new_tab")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryHierarchy")
   news        News[]
   rssSources  RssSource[]
 
   @@index([order])
   @@index([slug])
+  @@index([parentId])
   @@map("news_categories")
 }
 
@@ -179,6 +187,18 @@ model News {
   sourceUrl       String?         @map("source_url")
   sourceGuid      String?         @map("source_guid")
   authorId        String?         @map("author_id")
+  reporterId      String?         @map("reporter_id")
+  contentType     String          @default("ARTICLE") @map("content_type") // ARTICLE | VIDEO | REEL
+  videoUrl        String?         @map("video_url")
+  subCategoryId   String?         @map("sub_category_id")
+  originalTitleGu String?         @map("original_title_gu")
+  originalDescriptionGu String?   @map("original_description_gu")
+  originalContent String?         @db.Text @map("original_content")
+  contentBlocks   Json?           @map("content_blocks")
+  aiHistory       Json?           @map("ai_history")
+  rejectionReason String?         @map("rejection_reason")
+  approvedAt      DateTime?       @map("approved_at")
+  approvedById    String?         @map("approved_by_id")
   status          NewsStatus      @default(PENDING)
   isBreaking      Boolean         @default(false) @map("is_breaking")
   isTrending      Boolean         @default(false) @map("is_trending")
@@ -195,12 +215,15 @@ model News {
   source          RssSource?      @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   sourceItem      NewsSourceItem? @relation(fields: [sourceItemId], references: [id], onDelete: SetNull)
   author          User?           @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  reporter        Reporter?       @relation(fields: [reporterId], references: [id], onDelete: SetNull)
   breakingItem    BreakingNews?
   trendingItem    TrendingNews?
 
   @@index([status, publishedAt])
   @@index([categoryId, status])
   @@index([slug])
+  @@index([reporterId])
+  @@index([contentType, status])
   @@index([isBreaking, status])
   @@index([isTrending, status])
   @@index([isFeatured, status])
@@ -665,3 +688,59 @@ model TeamMember {
   @@index([isFeatured, isActive])
   @@map("team_members")
 }
+
+// ==========================================
+// REPORTERS SYSTEM (Module 1)
+// ==========================================
+
+model Reporter {
+  id              String    @id @default(uuid())
+  name            String
+  slug            String    @unique
+  designation     String    @default("પત્રકાર (News Reporter)")
+  profileImage    String?   @map("profile_image")
+  biography       String?   @db.Text
+  location        String?   @default("ગુજરાત")
+  email           String?
+  phone           String?
+  experience      String?   @default("3+ વર્ષ")
+  languages       String[]  @default(["ગુજરાતી"])
+  specialization  String?   @default("રાજકીય અને સ્થાનિક સમાચાર")
+  socialLinks     Json?     @map("social_links")
+  status          String    @default("ACTIVE") // ACTIVE | INACTIVE
+  isFeatured      Boolean   @default(false) @map("is_featured")
+  joiningDate     DateTime? @map("joining_date")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  news            News[]
+
+  @@index([status])
+  @@index([slug])
+  @@index([isFeatured])
+  @@map("reporters")
+}
+
+// ==========================================
+// CONTACT ENQUIRIES SYSTEM (Module 10)
+// ==========================================
+
+model ContactEnquiry {
+  id            String   @id @default(uuid())
+  name          String
+  email         String
+  phone         String?
+  enquiryType   String   @default("GENERAL") @map("enquiry_type")
+  subject       String
+  message       String   @db.Text
+  status        String   @default("PENDING") // PENDING | READ | REPLIED | ARCHIVED
+  internalNotes String?  @db.Text @map("internal_notes")
+  ipAddress     String?  @map("ip_address")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([enquiryType])
+  @@map("contact_enquiries")
+}
+

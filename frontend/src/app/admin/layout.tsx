@@ -13,6 +13,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState<number>(108);
+  const [sidebarTheme, setSidebarTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('admin_sidebar_theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setSidebarTheme(savedTheme);
+    }
+  }, []);
+
+  const toggleSidebarTheme = () => {
+    setSidebarTheme((prev) => {
+      const nextTheme = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('admin_sidebar_theme', nextTheme);
+      return nextTheme;
+    });
+  };
 
   useEffect(() => {
     if (user) {
@@ -60,9 +76,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         pendingCount={pendingCount}
+        theme={sidebarTheme}
+        onToggleTheme={toggleSidebarTheme}
       />
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
-        <AdminHeader onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+        <AdminHeader
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          sidebarTheme={sidebarTheme}
+          onToggleSidebarTheme={toggleSidebarTheme}
+        />
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {children}
         </main>

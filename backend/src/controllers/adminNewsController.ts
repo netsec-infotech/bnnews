@@ -13,6 +13,15 @@ const newsInputSchema = z.object({
   description: z.string().optional(),
   content: z.string().min(20, 'સમાચાર સામગ્રી ઓછામાં ઓછી 20 અક્ષરોની હોવી જોઈએ'),
   categoryId: z.string().uuid('માન્ય કેટેગરી પસંદ કરો'),
+  subCategoryId: z.string().optional().nullable(),
+  reporterId: z.string().optional().nullable(),
+  contentType: z.enum(['ARTICLE', 'VIDEO', 'REEL']).optional().default('ARTICLE'),
+  videoUrl: z.string().optional().nullable(),
+  contentBlocks: z.any().optional(),
+  aiHistory: z.any().optional(),
+  originalTitleGu: z.string().optional().nullable(),
+  originalDescriptionGu: z.string().optional().nullable(),
+  originalContent: z.string().optional().nullable(),
   featuredImage: z.string().optional().nullable(),
   additionalImages: z.array(z.string()).optional().default([]),
   tags: z.array(z.string()).optional().default([]),
@@ -33,6 +42,8 @@ export async function getAdminNews(req: AuthenticatedRequest, res: Response, nex
     const statusParam = req.query.status as string | undefined;
     const categoryId = req.query.categoryId as string | undefined;
     const sourceId = req.query.sourceId as string | undefined;
+    const reporterId = req.query.reporterId as string | undefined;
+    const contentType = req.query.contentType as string | undefined;
     const search = req.query.search as string | undefined;
 
     const where: any = {};
@@ -47,6 +58,14 @@ export async function getAdminNews(req: AuthenticatedRequest, res: Response, nex
 
     if (sourceId) {
       where.sourceId = sourceId;
+    }
+
+    if (reporterId) {
+      where.reporterId = reporterId;
+    }
+
+    if (contentType) {
+      where.contentType = contentType;
     }
 
     if (search && search.trim().length > 0) {
@@ -71,6 +90,9 @@ export async function getAdminNews(req: AuthenticatedRequest, res: Response, nex
           },
           author: {
             select: { id: true, name: true, email: true },
+          },
+          reporter: {
+            select: { id: true, name: true, designation: true, profileImage: true, slug: true },
           },
           sourceItem: {
             select: {
@@ -113,6 +135,7 @@ export async function getAdminNewsById(req: AuthenticatedRequest, res: Response,
       include: {
         category: true,
         source: true,
+        reporter: true,
         author: {
           select: { id: true, name: true, email: true },
         },
@@ -156,6 +179,15 @@ export async function createManualNews(req: AuthenticatedRequest, res: Response,
         featuredImage: data.featuredImage || null,
         additionalImages: data.additionalImages,
         categoryId: data.categoryId,
+        subCategoryId: data.subCategoryId || null,
+        reporterId: data.reporterId || null,
+        contentType: data.contentType || 'ARTICLE',
+        videoUrl: data.videoUrl || null,
+        contentBlocks: data.contentBlocks || undefined,
+        aiHistory: data.aiHistory || undefined,
+        originalTitleGu: data.originalTitleGu || data.titleGu,
+        originalDescriptionGu: data.originalDescriptionGu || data.descriptionGu,
+        originalContent: data.originalContent || data.content,
         authorId: userId,
         status: finalStatus,
         isBreaking: data.isBreaking,
@@ -232,6 +264,12 @@ export async function updateAdminNews(req: AuthenticatedRequest, res: Response, 
         ...(data.description !== undefined && { description: data.description }),
         ...(data.content && { content: data.content }),
         ...(data.categoryId && { categoryId: data.categoryId }),
+        ...(data.subCategoryId !== undefined && { subCategoryId: data.subCategoryId }),
+        ...(data.reporterId !== undefined && { reporterId: data.reporterId }),
+        ...(data.contentType && { contentType: data.contentType }),
+        ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl }),
+        ...(data.contentBlocks !== undefined && { contentBlocks: data.contentBlocks }),
+        ...(data.aiHistory !== undefined && { aiHistory: data.aiHistory }),
         ...(data.featuredImage !== undefined && { featuredImage: data.featuredImage }),
         ...(data.additionalImages && { additionalImages: data.additionalImages }),
         ...(data.tags && { tags: data.tags }),
@@ -286,6 +324,9 @@ export async function publishNews(req: AuthenticatedRequest, res: Response, next
       data: {
         status: NewsStatus.PUBLISHED,
         publishedAt: article.publishedAt || new Date(),
+        approvedAt: new Date(),
+        approvedById: userId || null,
+        rejectionReason: null,
       },
     });
 
@@ -336,9 +377,18 @@ export async function rejectNews(req: AuthenticatedRequest, res: Response, next:
       return;
     }
 
+    const reason = (req.body.reason || '').trim();
+    if (!reason) {
+      res.status(400).json({ success: false, message: 'સમાચાર નકારવા માટે યોગ્ય કારણ જણાવવું આવશ્યક છે' });
+      return;
+    }
+
     const rejected = await prisma.news.update({
       where: { id },
-      data: { status: NewsStatus.REJECTED },
+      data: {
+        status: NewsStatus.REJECTED,
+        rejectionReason: reason,
+      },
     });
 
     // Remove from breaking & trending if exists

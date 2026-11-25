@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Users, UserPlus, Trash2, Shield } from 'lucide-react';
+import { Users, UserPlus, Trash2, Shield, Key, Edit2, X, CheckCircle, Lock } from 'lucide-react';
 import { User, Role } from '../../../lib/types';
 import api from '../../../lib/api';
 
@@ -9,11 +9,21 @@ export default function UsersAdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Create User State
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('REPORTER');
+
+  // Edit / Password Update State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState<Role>('REPORTER');
+  const [newPassword, setNewPassword] = useState('');
+  const [updating, setUpdating] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null);
 
   const loadUsers = () => {
     setLoading(true);
@@ -44,6 +54,47 @@ export default function UsersAdminPage() {
     }
   };
 
+  const openEditModal = (u: User) => {
+    setEditingUser(u);
+    setEditName(u.name);
+    setEditRole(u.role);
+    setNewPassword('');
+    setUpdateMsg(null);
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    setUpdating(true);
+    setUpdateMsg(null);
+
+    try {
+      const payload: any = {
+        name: editName.trim(),
+        role: editRole,
+      };
+      if (newPassword.trim()) {
+        payload.password = newPassword.trim();
+      }
+
+      const res = await api.put(`/admin/users/${editingUser.id}`, payload);
+      if (res.data?.success) {
+        setUpdateMsg('વપરાશકર્તા અને પાસવર્ડ સફળતાપૂર્વક અપડેટ થયા!');
+        loadUsers();
+        setTimeout(() => {
+          setEditModalOpen(false);
+          setEditingUser(null);
+        }, 1200);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'વપરાશકર્તા અપડેટ કરવામાં ક્ષતિ આવી');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('શું તમે ખરેખર આ વપરાશકર્તાને કાઢી નાખવા માંગો છો?')) return;
     try {
@@ -55,28 +106,28 @@ export default function UsersAdminPage() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-xs p-5 space-y-6 font-gujarati">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-4">
+    <div className="space-y-6 font-gujarati text-neutral-text">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-xl font-bold text-neutral-text flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            <span>વપરાશકર્તાઓ અને ભૂમિકાઓ (Users & Roles)</span>
+          <h1 className="text-2xl font-black text-neutral-text flex items-center gap-2">
+            <Users className="w-6 h-6 text-primary" />
+            <span>વપરાશકર્તા અને પરવાનગીઓ (Users & Roles)</span>
           </h1>
           <p className="text-xs text-neutral-muted mt-0.5">
-            સુપર એડમિન, એડમિન, એડિટર અને રિપોર્ટર અધિકાર વ્યવસ્થાપન
+            એડમિન, સંપાદક અને સંવાદદાતાઓના એકાઉન્ટ્સ અને પાસવર્ડનું સંચાલન
           </p>
         </div>
 
         <button
           onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary-dark transition-all shadow-sm w-fit"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-bold shadow-md transition-colors w-fit"
         >
-          <UserPlus className="w-4 h-4 text-secondary" />
+          <UserPlus className="w-4 h-4 text-accent-gold" />
           <span>નવા વપરાશકર્તા ઉમેરો</span>
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
         <table className="w-full text-left text-xs">
           <thead className="bg-gray-50 text-neutral-muted uppercase text-[10px] border-b border-gray-200">
             <tr>
@@ -85,7 +136,7 @@ export default function UsersAdminPage() {
               <th className="py-3 px-3">ભૂમિકા (Role)</th>
               <th className="py-3 px-3">સ્થિતિ</th>
               <th className="py-3 px-3">તારીખ</th>
-              <th className="py-3 px-3 text-right">ક્રિયા</th>
+              <th className="py-3 px-3 text-right">સંપાદન / પાસવર્ડ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -122,12 +173,23 @@ export default function UsersAdminPage() {
                   {u.createdAt ? new Date(u.createdAt).toLocaleDateString('gu-IN') : ''}
                 </td>
                 <td className="py-3 px-3 text-right">
-                  <button
-                    onClick={() => handleDelete(u.id)}
-                    className="p-1 text-red-500 hover:text-red-700 rounded hover:bg-red-50"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      onClick={() => openEditModal(u)}
+                      className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 font-bold text-[11px]"
+                      title="પાસવર્ડ અથવા ભૂમિકા બદલો"
+                    >
+                      <Key className="w-3.5 h-3.5" />
+                      <span>પાસવર્ડ બદલો</span>
+                    </button>
+                    <button
+                      onClick={() => handleDelete(u.id)}
+                      className="p-1.5 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50 transition-colors"
+                      title="કાઢી નાખો"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -135,11 +197,13 @@ export default function UsersAdminPage() {
         </table>
       </div>
 
+      {/* CREATE USER MODAL */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <h2 className="text-base font-bold text-neutral-text border-b border-gray-200 pb-2">
-              નવા વપરાશકર્તા ઉમેરો
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <h2 className="text-base font-bold text-neutral-text border-b border-gray-200 pb-2 flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" />
+              <span>નવા વપરાશકર્તા ઉમેરો</span>
             </h2>
 
             <form onSubmit={handleCreate} className="space-y-3 text-xs">
@@ -162,7 +226,7 @@ export default function UsersAdminPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="user@bnnews.in"
+                  placeholder="admin@bnnews.com"
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs font-mono"
                 />
               </div>
@@ -175,7 +239,7 @@ export default function UsersAdminPage() {
                   minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="ઓછામાં ઓછા ૬ અક્ષર"
+                  placeholder="દા.ત. BNnews@123"
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs font-mono"
                 />
               </div>
@@ -185,28 +249,126 @@ export default function UsersAdminPage() {
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs font-bold"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs bg-white"
                 >
-                  <option value="REPORTER">REPORTER (સમાચાર બનાવી શકે, માત્ર ડ્રાફ્ટ)</option>
-                  <option value="EDITOR">EDITOR (સમીક્ષા કરી શકે, મંજૂર કરી શકે)</option>
-                  <option value="ADMIN">ADMIN (સમાચાર, કેટેગરી અને મીડિયા સંચાલન)</option>
-                  <option value="SUPER_ADMIN">SUPER_ADMIN (સંપૂર્ણ સિસ્ટમ ઍક્સેસ)</option>
+                  <option value="REPORTER">સંવાદદાતા (Reporter)</option>
+                  <option value="EDITOR">સંપાદક (Editor)</option>
+                  <option value="ADMIN">વ્યવસ્થાપક (Admin)</option>
+                  <option value="SUPER_ADMIN">મુખ્ય વ્યવસ્થાપક (Super Admin)</option>
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t">
+              <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-1.5 border rounded-lg text-gray-600"
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-700 font-bold"
                 >
                   રદ કરો
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-1.5 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark"
+                  className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg font-bold"
                 >
-                  ઉમેરો
+                  સાચવો
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT USER & UPDATE PASSWORD MODAL */}
+      {editModalOpen && editingUser && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <Key className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    પાસવર્ડ અને વપરાશકર્તા સંપાદન
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-mono">{editingUser.email}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {updateMsg && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{updateMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateUser} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">વપરાશકર્તા નામ</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">ભૂમિકા (Role)</label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as Role)}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs bg-white"
+                >
+                  <option value="REPORTER">સંવાદદાતા (Reporter)</option>
+                  <option value="EDITOR">સંપાદક (Editor)</option>
+                  <option value="ADMIN">વ્યવસ્થાપક (Admin)</option>
+                  <option value="SUPER_ADMIN">મુખ્ય વ્યવસ્થાપક (Super Admin)</option>
+                </select>
+              </div>
+
+              <div className="pt-2 border-t border-gray-100">
+                <label className="block font-bold text-gray-900 mb-1 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-primary" />
+                  <span>નવો પાસવર્ડ દાખલ કરો (New Password)</span>
+                </label>
+                <p className="text-[10px] text-gray-400 mb-1.5">
+                  જો પાસવર્ડ બદલવો ન હોય તો આ ખાનું ખાલી છોડો.
+                </p>
+                <input
+                  type="text"
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="દા.ત. BNnews@123"
+                  className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:border-primary text-xs font-mono bg-blue-50/30"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-700 font-bold"
+                >
+                  રદ કરો
+                </button>
+                <button
+                  type="submit"
+                  disabled={updating}
+                  className="px-5 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg font-bold shadow-sm transition-colors disabled:opacity-50"
+                >
+                  {updating ? 'અપડેટ થઈ રહ્યું છે...' : 'પાસવર્ડ સાચવો (Update Password)'}
                 </button>
               </div>
             </form>

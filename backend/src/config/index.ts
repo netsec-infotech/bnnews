@@ -14,4 +14,6 @@ export const config = {
   backendUrl: process.env.BACKEND_URL || 'http://localhost:5000',
   uploadDir: process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'),
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '262144000', 10), // 250 MB
+  geminiApiKey: process.env.GEMINI_API_KEY || 'AIzaSyA9X40idSuNbiMwkEHrE7EnPetx2CHivZg',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
 };

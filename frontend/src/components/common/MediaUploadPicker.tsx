@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Image as ImageIcon, Film, X, Search, Check, Link as LinkIcon, FolderOpen, Loader2 } from 'lucide-react';
 import api from '../../lib/api';
+import { getMediaUrl } from '../../lib/media';
 import { MediaItem } from '../../lib/types';
 
 interface MediaUploadPickerProps {
@@ -13,6 +14,7 @@ interface MediaUploadPickerProps {
   placeholder?: string;
   helperText?: string;
   required?: boolean;
+  folder?: string;
 }
 
 export default function MediaUploadPicker({
@@ -137,13 +139,13 @@ export default function MediaUploadPicker({
               <div className="w-full sm:w-36 h-24 rounded-lg overflow-hidden bg-black/10 flex items-center justify-center shrink-0 border border-gray-300">
                 {isVideo ? (
                   <video
-                    src={value}
+                    src={getMediaUrl(value)}
                     controls
                     className="w-full h-full object-cover rounded-lg"
                   />
                 ) : (
                   <img
-                    src={value}
+                    src={getMediaUrl(value)}
                     alt="Preview"
                     className="w-full h-full object-cover rounded-lg"
                   />
@@ -381,7 +383,7 @@ export default function MediaUploadPicker({
                             </div>
                           ) : (
                             <img
-                              src={item.thumbnailUrl || item.url}
+                              src={getMediaUrl(item.thumbnailUrl || item.url)}
                               alt={item.altText || item.originalName}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />

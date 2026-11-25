@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Gujarati:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Gujarati:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -16,9 +16,13 @@
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
-  font-family: 'Noto Sans Gujarati', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans Gujarati', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.font-gujarati {
+  font-family: 'Noto Sans Gujarati', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* Custom broadcast news badges and styling */
@@ -64,4 +68,54 @@ body {
 
 .animate-ticker:hover {
   animation-play-state: paused;
+}
+
+/* News Portal Editorial Animations */
+@keyframes slideFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes kenBurnsZoom {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.07);
+  }
+}
+
+@keyframes sliderProgress {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-slide-fade {
+  animation: slideFadeIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-ken-burns {
+  animation: kenBurnsZoom 6s ease-out forwards;
+}
+
+.animate-slider-progress {
+  animation: sliderProgress 4.5s linear forwards;
+}
+
+.news-card-creative {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease, border-color 0.28s ease;
+}
+
+.news-card-creative:hover {
+  transform: translateY(-3px);
 }

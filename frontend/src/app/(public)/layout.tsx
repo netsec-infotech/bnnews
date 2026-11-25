@@ -4,6 +4,7 @@ import Navbar from '../../components/public/Navbar';
 import BreakingNewsTicker from '../../components/public/BreakingNewsTicker';
 import Footer from '../../components/public/Footer';
 import PopupAdModal from '../../components/common/PopupAdModal';
+import PublicMainContainer from '../../components/public/PublicMainContainer';
 
 export default function PublicLayout({
   children,
@@ -15,9 +16,7 @@ export default function PublicLayout({
       <Header />
       <Navbar />
       <BreakingNewsTicker />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
-        {children}
-      </main>
+      <PublicMainContainer>{children}</PublicMainContainer>
       <Footer />
       <PopupAdModal />
     </div>

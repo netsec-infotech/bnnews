@@ -98,6 +98,36 @@ import {
   deleteTeamMember,
 } from '../controllers/teamCMSController.js';
 
+// Module 1: Reporter Management
+import {
+  getAdminReporters,
+  getReporterById,
+  createReporter,
+  updateReporter,
+  toggleReporterStatus,
+  deleteReporter,
+} from '../controllers/reporterController.js';
+
+// Module 6: Gemini AI News Writer
+import {
+  handleGenerateNews,
+  handleRecreateNews,
+  handleRewriteNews,
+  handleTranslateNews,
+  handleGenerateHeadlines,
+  handleSummarizeNews,
+} from '../controllers/aiNewsController.js';
+
+// Module 10: Contact Enquiries Management
+import {
+  getAdminEnquiries,
+  getEnquiryById,
+  updateEnquiryStatus,
+  deleteEnquiry,
+} from '../controllers/contactController.js';
+
+import { uploadImage, uploadVideo } from '../controllers/adminMediaController.js';
+
 const router = Router();
 
 // Protect all admin routes with authentication
@@ -114,7 +144,11 @@ router.put('/news/:id', updateAdminNews);
 router.delete('/news/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN), deleteNews);
 router.post('/news/bulk-delete', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), bulkDeleteNews);
 router.post('/news/:id/publish', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), publishNews);
+router.put('/news/:id/publish', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), publishNews);
+router.patch('/news/:id/publish', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), publishNews);
 router.post('/news/:id/reject', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), rejectNews);
+router.put('/news/:id/reject', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), rejectNews);
+router.patch('/news/:id/reject', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), rejectNews);
 
 // 3. RSS Management
 router.get('/rss-sources', getRssSources);
@@ -134,6 +168,8 @@ router.delete('/categories/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN), dele
 // 5. Media Library
 router.get('/media', getMediaList);
 router.post('/media/upload', uploadMiddleware.single('image'), uploadMedia);
+router.post('/media/upload-image', uploadMiddleware.single('image'), uploadImage);
+router.post('/media/upload-video', uploadMiddleware.single('video'), uploadVideo);
 router.delete('/media/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN), deleteMedia);
 
 // 6. Breaking News
@@ -150,6 +186,7 @@ router.delete('/trending/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.ED
 router.get('/users', requireRole(Role.SUPER_ADMIN), getUsers);
 router.post('/users', requireRole(Role.SUPER_ADMIN), createUser);
 router.put('/users/:id', requireRole(Role.SUPER_ADMIN), updateUser);
+router.patch('/users/:id', requireRole(Role.SUPER_ADMIN), updateUser);
 router.delete('/users/:id', requireRole(Role.SUPER_ADMIN), deleteUser);
 
 // 9. Website Settings & Audit Logs
@@ -196,6 +233,7 @@ router.put('/social/posts/:id/toggle', requireRole(Role.SUPER_ADMIN, Role.ADMIN,
 router.get('/videos', getAdminVideos);
 router.post('/videos', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), createVideo);
 router.put('/videos/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), updateVideo);
+router.patch('/videos/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), updateVideo);
 router.delete('/videos/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN), deleteVideo);
 router.get('/videos/categories', getVideoCategories);
 
@@ -209,5 +247,34 @@ router.get('/team/members', getAdminTeamMembers);
 router.post('/team/members', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.TEAM_MANAGER), createTeamMember);
 router.put('/team/members/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.TEAM_MANAGER), updateTeamMember);
 router.delete('/team/members/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN), deleteTeamMember);
+
+// 14. Reporters Management (Module 1)
+router.get('/reporters', getAdminReporters);
+router.get('/reporters/:id', getReporterById);
+router.post('/reporters', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), createReporter);
+router.put('/reporters/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), updateReporter);
+router.patch('/reporters/:id/status', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), toggleReporterStatus);
+router.patch('/reporters/:id/toggle-status', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR), toggleReporterStatus);
+router.delete('/reporters/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN), deleteReporter);
+
+// 15. Gemini AI Multilingual News Writing (Module 6)
+router.post('/ai/news/generate', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleGenerateNews);
+router.post('/ai/generate', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleGenerateNews);
+router.post('/ai/news/recreate', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleRecreateNews);
+router.post('/ai/recreate', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleRecreateNews);
+router.post('/ai/news/rewrite', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleRewriteNews);
+router.post('/ai/rewrite', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleRewriteNews);
+router.post('/ai/news/translate', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleTranslateNews);
+router.post('/ai/translate', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleTranslateNews);
+router.post('/ai/news/headline', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleGenerateHeadlines);
+router.post('/ai/headlines', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleGenerateHeadlines);
+router.post('/ai/news/summarize', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleSummarizeNews);
+router.post('/ai/summary', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.EDITOR, Role.REPORTER), handleSummarizeNews);
+
+// 16. Contact Enquiries Management (Module 10)
+router.get('/contact-enquiries', getAdminEnquiries);
+router.get('/contact-enquiries/:id', getEnquiryById);
+router.put('/contact-enquiries/:id', updateEnquiryStatus);
+router.delete('/contact-enquiries/:id', requireRole(Role.SUPER_ADMIN, Role.ADMIN), deleteEnquiry);
 
 export default router;

@@ -48,6 +48,9 @@ export async function uploadMedia(req: AuthenticatedRequest, res: Response, next
   }
 }
 
+export const uploadImage = uploadMedia;
+export const uploadVideo = uploadMedia;
+
 export async function getMediaList(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
@@ -71,6 +74,7 @@ export async function getMediaList(req: AuthenticatedRequest, res: Response, nex
           OR: [
             { originalName: { contains: search.trim(), mode: 'insensitive' } },
             { altText: { contains: search.trim(), mode: 'insensitive' } },
+            { filename: { contains: search.trim(), mode: 'insensitive' } },
           ],
         },
       ];
@@ -109,6 +113,47 @@ export async function deleteMedia(req: AuthenticatedRequest, res: Response, next
     const media = await prisma.media.findUnique({ where: { id } });
     if (!media) {
       res.status(404).json({ success: false, message: 'મીડિયા ફાઇલ મળેલ નથી' });
+      return;
+    }
+
+    // Safety Check: Verify if media is currently used in active articles, reporters, team or ads
+    const [newsCount, reporterCount, teamCount, videoCount] = await Promise.all([
+      prisma.news.count({
+        where: {
+          OR: [
+            { featuredImage: media.url },
+            { content: { contains: media.url } },
+          ],
+        },
+      }),
+      prisma.reporter.count({
+        where: { profileImage: media.url },
+      }),
+      prisma.teamMember.count({
+        where: { photoUrl: media.url },
+      }),
+      prisma.video.count({
+        where: {
+          OR: [
+            { thumbnailUrl: media.url },
+            { videoUrl: media.url },
+            { videoFile: media.filename },
+          ],
+        },
+      }),
+    ]);
+
+    if (newsCount > 0 || reporterCount > 0 || teamCount > 0 || videoCount > 0) {
+      const uses = [];
+      if (newsCount > 0) uses.push(`${newsCount} સમાચાર લેખ`);
+      if (reporterCount > 0) uses.push(`${reporterCount} રિપોર્ટર પ્રોફાઇલ`);
+      if (teamCount > 0) uses.push(`${teamCount} ટીમ મેમ્બર`);
+      if (videoCount > 0) uses.push(`${videoCount} વિડિયો`);
+
+      res.status(400).json({
+        success: false,
+        message: `આ મીડિયા ફાઇલ હાલમાં વપરાશમાં છે (${uses.join(', ')}). કૃપા કરીને પ્રથમ ત્યાંથી તેને દૂર કરો.`,
+      });
       return;
     }
 

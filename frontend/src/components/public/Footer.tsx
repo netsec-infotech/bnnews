@@ -76,6 +76,9 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-2 text-xs md:text-sm text-gray-300">
               <li>
+                <Link href="/e-paper" className="hover:text-accent-gold transition-colors">ઈ-પેપર (E-Paper)</Link>
+              </li>
+              <li>
                 <Link href="/about" className="hover:text-accent-gold transition-colors">અમારા વિશે (About Us)</Link>
               </li>
               <li>
@@ -116,7 +119,7 @@ export const Footer: React.FC = () => {
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-secondary shrink-0" />
-                <span>contact@bnnews.in</span>
+                <a href="mailto:editor@bnnewsgujarati.com" className="hover:text-white transition-colors">editor@bnnewsgujarati.com</a>
               </li>
             </ul>
           </div>

@@ -55,7 +55,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({ article, variant = 'standard
     return (
       <Link
         href={detailUrl}
-        className="group bg-white rounded-xl p-3.5 border border-neutral-border hover:shadow-cardHover transition-all flex flex-col sm:flex-row gap-4"
+        className="group news-card-creative bg-white rounded-xl p-3.5 border border-neutral-border hover:border-primary/30 hover:shadow-cardHover flex flex-col sm:flex-row gap-4"
       >
         <div className="sm:w-48 h-32 rounded-lg overflow-hidden bg-gray-100 shrink-0 relative border border-gray-200">
           <img
@@ -107,7 +107,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({ article, variant = 'standard
   return (
     <Link
       href={detailUrl}
-      className="group bg-white rounded-xl overflow-hidden border border-neutral-border hover:shadow-cardHover transition-all flex flex-col"
+      className="group news-card-creative bg-white rounded-xl overflow-hidden border border-neutral-border hover:border-primary/30 hover:shadow-cardHover flex flex-col"
     >
       <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
         <img

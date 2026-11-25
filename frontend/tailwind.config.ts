@@ -42,9 +42,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        gujarati: ['var(--font-noto-gujarati)', 'Noto Sans Gujarati', 'Shruti', 'sans-serif'],
-        headline: ['var(--font-headline)', 'Oswald', 'Inter', 'sans-serif'],
-        sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        gujarati: ['var(--font-noto-gujarati)', 'Noto Sans Gujarati', 'Plus Jakarta Sans', 'Inter', 'Shruti', 'sans-serif'],
+        headline: ['var(--font-headline)', 'Plus Jakarta Sans', 'Oswald', 'Inter', 'sans-serif'],
+        sans: ['var(--font-plus-jakarta)', 'Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         card: '0 2px 8px -2px rgba(30, 37, 115, 0.08), 0 1px 4px -1px rgba(30, 37, 115, 0.04)',

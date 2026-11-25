@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Clock,
+  ChevronLeft,
   ChevronRight,
   Play,
   ArrowRight,
@@ -24,11 +25,13 @@ export default function HomePage() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [popupVideo, setPopupVideo] = useState<VideoItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [isSliderPaused, setIsSliderPaused] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      api.get('/news?limit=25').catch(() => ({ data: { data: [] } })),
+      api.get('/news?limit=30').catch(() => ({ data: { data: [] } })),
       api.get('/trending').catch(() => ({ data: { data: [] } })),
       api.get('/videos?limit=12').catch(() => ({ data: { data: [] } })),
     ]).then(([newsRes, trendRes, videoRes]) => {
@@ -40,7 +43,7 @@ export default function HomePage() {
       }
       if (videoRes.data?.data && Array.isArray(videoRes.data.data)) {
         const cleanVids = videoRes.data.data.filter(
-          (v: VideoItem) => !v.videoUrl?.includes('dQw4w9WgXcQ')
+          (v: VideoItem) => !v.videoUrl?.includes('dQw4w9WgXcQ') && !v.isReel
         );
         setVideos(cleanVids);
       }
@@ -48,10 +51,22 @@ export default function HomePage() {
     });
   }, []);
 
-  // Split live approved news into Hero, Secondary, and Latest News
-  const heroArticle = liveNews.length > 0 ? liveNews[0] : null;
+  // Split live approved news into Hero Slider (top 5), Secondary, and Latest News
+  const heroSlides = liveNews.slice(0, 5);
+  const heroArticle = heroSlides[activeSlide] || (liveNews.length > 0 ? liveNews[0] : null);
   const secondaryArticles = liveNews.length > 1 ? liveNews.slice(1, 4) : [];
-  const latestArticles = liveNews.length > 4 ? liveNews.slice(4, 9) : liveNews.slice(1);
+
+  useEffect(() => {
+    if (isSliderPaused || heroSlides.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % heroSlides.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [isSliderPaused, heroSlides.length]);
+  // Row 1: 5 latest articles alongside Live TV card
+  const latestRow1Articles = liveNews.length > 4 ? liveNews.slice(4, 9) : liveNews.slice(1, 6);
+  // Additional 2 rows (6 cards per row = 12 additional cards)
+  const latestAdditionalArticles = liveNews.length > 9 ? liveNews.slice(9, 21) : liveNews.slice(6, 18);
 
   // Trending articles: from /trending API or fallback to subsequent live news
   const trendingList =
@@ -100,18 +115,23 @@ export default function HomePage() {
       {/* ========================================================= */}
       {heroArticle ? (
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-          {/* Left: Large Featured Hero News Card (5 cols on XL, 6 cols on LG) */}
-          <div className="lg:col-span-6 xl:col-span-5 flex">
+          {/* Left: Interactive Auto-Sliding Featured Hero News Carousel (5 cols on XL, 6 cols on LG) */}
+          <div
+            className="lg:col-span-6 xl:col-span-5 flex relative group/slider"
+            onMouseEnter={() => setIsSliderPaused(true)}
+            onMouseLeave={() => setIsSliderPaused(false)}
+          >
             <Link
               href={`/${heroArticle.category?.slug || 'gujarat'}/${heroArticle.slug}`}
               className="group relative w-full rounded-2xl overflow-hidden shadow-xs hover:shadow-cardHover transition-all flex flex-col justify-end min-h-[420px] lg:min-h-[460px] bg-gray-900 border border-gray-200"
             >
-              {/* Background image */}
+              {/* Background image with Ken Burns zoom */}
               {heroArticle.featuredImage ? (
                 <img
+                  key={`hero-img-${heroArticle.id}`}
                   src={heroArticle.featuredImage}
                   alt={heroArticle.titleGu}
-                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-95"
+                  className="absolute inset-0 w-full h-full object-cover animate-ken-burns brightness-95"
                 />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-navy via-slate-800 to-black flex items-center justify-center p-8">
@@ -119,20 +139,26 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Category Pill Tag on top-left */}
-              <div className="absolute top-4 left-4 z-10">
-                <span className="bg-[#E51B2B] text-white font-extrabold text-xs px-3 py-1 rounded-md shadow-md uppercase tracking-wider">
+              {/* Top Bar: Category Pill + Slide Counter */}
+              <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between">
+                <span className="bg-[#E51B2B] text-white font-extrabold text-xs px-3 py-1 rounded-md shadow-md uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                   {heroArticle.category?.nameGu || 'રાષ્ટ્રીય સમાચાર'}
                 </span>
+                {heroSlides.length > 1 && (
+                  <span className="bg-black/55 backdrop-blur-xs text-white/90 text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/15">
+                    {activeSlide + 1} / {heroSlides.length}
+                  </span>
+                )}
               </div>
 
               {/* Dark gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent"></div>
 
-              {/* Content at bottom */}
-              <div className="relative p-5 sm:p-6 md:p-8 space-y-3 text-white">
+              {/* Content at bottom with smooth slide-fade */}
+              <div key={`hero-text-${heroArticle.id}`} className="relative p-5 sm:p-6 md:p-8 space-y-3 text-white animate-slide-fade">
                 {/* Bold Gujarati Headline */}
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-black leading-snug group-hover:text-yellow-300 transition-colors">
+                <h1 className="text-xl sm:text-2xl lg:text-xl font-black leading-snug group-hover:text-yellow-300 transition-colors">
                   {heroArticle.titleGu}
                 </h1>
 
@@ -158,21 +184,82 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  <div className="inline-flex items-center gap-1.5 bg-[#183B7E] hover:bg-[#122b5e] text-white font-bold text-xs px-4 py-2 rounded-lg shadow-xs transition-colors">
+                  <div className="inline-flex items-center gap-1.5 bg-[#183B7E] hover:bg-[#E51B2B] text-white font-bold text-xs px-4 py-2 rounded-lg shadow-xs transition-colors">
                     <span>વાંચો વધુ</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>
 
-                {/* Dots indicator matching mockup */}
-                <div className="flex items-center gap-1.5 pt-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-white"></span>
-                  <span className="w-2 h-2 rounded-full bg-white/40"></span>
-                  <span className="w-2 h-2 rounded-full bg-white/40"></span>
-                  <span className="w-2 h-2 rounded-full bg-white/40"></span>
-                </div>
+                {/* Interactive Dots indicator */}
+                {heroSlides.length > 1 && (
+                  <div
+                    className="flex items-center gap-1.5 pt-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                  >
+                    {heroSlides.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setActiveSlide(idx);
+                        }}
+                        aria-label={`Slide ${idx + 1}`}
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          activeSlide === idx
+                            ? 'w-6 bg-white shadow-xs'
+                            : 'w-2 bg-white/45 hover:bg-white/80'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Bottom Auto-Slide Progress Bar */}
+              {heroSlides.length > 1 && !isSliderPaused && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/15 z-20">
+                  <div
+                    key={`progress-${activeSlide}`}
+                    className="h-full bg-gradient-to-r from-[#E51B2B] via-[#F58220] to-[#FFD900] animate-slider-progress"
+                  />
+                </div>
+              )}
             </Link>
+
+            {/* Prev / Next Navigation Arrows */}
+            {heroSlides.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
+                  }}
+                  aria-label="Previous slide"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/50 hover:bg-[#E51B2B] text-white flex items-center justify-center backdrop-blur-xs opacity-0 group-hover/slider:opacity-100 transition-all shadow-md"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveSlide((prev) => (prev + 1) % heroSlides.length);
+                  }}
+                  aria-label="Next slide"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-black/50 hover:bg-[#E51B2B] text-white flex items-center justify-center backdrop-blur-xs opacity-0 group-hover/slider:opacity-100 transition-all shadow-md"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Center: 3 Stacked Secondary News Cards (4 cols on XL, 6 cols on LG) */}
@@ -182,7 +269,7 @@ export default function HomePage() {
                 <Link
                   key={article.id || idx}
                   href={`/${article.category?.slug || 'gujarat'}/${article.slug}`}
-                  className="group bg-white rounded-2xl p-3 sm:p-3.5 border border-gray-200/90 hover:shadow-cardHover transition-all flex items-center gap-3.5 flex-1 justify-between shadow-2xs"
+                  className="group news-card-creative bg-white rounded-2xl p-3 sm:p-3.5 border border-gray-200/90 hover:border-primary/30 hover:shadow-cardHover flex items-center gap-3.5 flex-1 justify-between shadow-2xs"
                 >
                   {/* Thumbnail Image */}
                   <div className="relative w-28 sm:w-32 h-20 sm:h-24 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-100">
@@ -316,7 +403,7 @@ export default function HomePage() {
           </div>
 
           <Link
-            href="/gujarat"
+            href="/latest-news"
             className="text-xs font-bold text-primary hover:text-[#E51B2B] flex items-center gap-1 transition-colors"
           >
             <span>બધા સમાચાર જુઓ</span>
@@ -324,9 +411,9 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* Latest News Grid + Live TV Banner */}
+        {/* Row 1: 5 Latest News Cards + Live TV Banner */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-stretch">
-          {latestArticles.map((article) => (
+          {latestRow1Articles.map((article) => (
             <Link
               key={article.id}
               href={`/${article.category?.slug || 'gujarat'}/${article.slug}`}
@@ -399,6 +486,61 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
+
+        {/* Rows 2 & 3: Additional 2 Full Rows of Latest News Cards (12 Cards) */}
+        {latestAdditionalArticles.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-stretch pt-1">
+            {latestAdditionalArticles.map((article) => (
+              <Link
+                key={article.id}
+                href={`/${article.category?.slug || 'gujarat'}/${article.slug}`}
+                className="group bg-white rounded-2xl overflow-hidden border border-gray-200/90 shadow-2xs hover:shadow-cardHover transition-all flex flex-col justify-between"
+              >
+                <div className="relative aspect-[16/10] w-full overflow-hidden bg-gray-100">
+                  {article.featuredImage ? (
+                    <img
+                      src={article.featuredImage}
+                      alt={article.titleGu}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-blue-50 flex items-center justify-center p-2">
+                      <img src="/logo.png" alt="" className="w-12 h-12 object-contain opacity-50" />
+                    </div>
+                  )}
+                  {/* Category Pill */}
+                  <div className="absolute top-2.5 left-2.5">
+                    <span
+                      className={`text-[10px] font-extrabold px-2 py-0.5 rounded text-white shadow-xs ${getCategoryColor(
+                        article.category?.nameGu
+                      )}`}
+                    >
+                      {article.category?.nameGu || 'સમાચાર'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 space-y-2 flex-1 flex flex-col justify-between">
+                  <h3 className="font-bold text-xs sm:text-sm text-gray-900 line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                    {article.titleGu}
+                  </h3>
+
+                  <div className="flex items-center gap-1 text-[10px] text-gray-400 font-medium pt-1">
+                    <Clock className="w-3 h-3 text-gray-400" />
+                    <span>
+                      {article.publishedAt
+                        ? new Date(article.publishedAt).toLocaleDateString('gu-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                          })
+                        : 'તાજેતર'}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ========================================================= */}
@@ -416,7 +558,7 @@ export default function HomePage() {
             </div>
 
             <Link
-              href="/videos"
+              href="/video-news"
               className="text-xs font-bold text-primary hover:text-[#E51B2B] flex items-center gap-1 transition-colors"
             >
               <span>બધા વીડિયો જુઓ</span>
