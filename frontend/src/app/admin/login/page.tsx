@@ -15,7 +15,6 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [failedAttempts, setFailedAttempts] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,15 +24,12 @@ export default function AdminLoginPage() {
     try {
       const res = await api.post('/auth/login', { email, password });
       if (res.data?.success && res.data.token) {
-        setFailedAttempts(0);
         login(res.data.token, res.data.user);
         router.push('/admin');
       } else {
-        setFailedAttempts((prev) => prev + 1);
         setError(res.data?.message || 'લૉગિન નિષ્ફળ ગયું');
       }
     } catch (err: any) {
-      setFailedAttempts((prev) => prev + 1);
       setError(
         err.response?.data?.message || 'ઈમેલ અથવા પાસવર્ડ અમાન્ય છે અથવા સર્વર કનેક્શનમાં ક્ષતિ છે.'
       );
@@ -61,28 +57,6 @@ export default function AdminLoginPage() {
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
             {error}
-          </div>
-        )}
-
-        {failedAttempts >= 2 && (
-          <div className="mb-5 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-2">
-            <div className="font-bold flex items-center justify-between">
-              <span>ફોલબેક એડમિન વિગતો (Fallback Login):</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('admin@bnnewsgujarati.com');
-                  setPassword('BNnews@2323');
-                }}
-                className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold transition-colors"
-              >
-                Auto Fill
-              </button>
-            </div>
-            <div className="font-mono text-[11px] bg-white/80 px-2.5 py-1.5 rounded border border-amber-200/70 space-y-0.5">
-              <div>Email: <strong>admin@bnnewsgujarati.com</strong></div>
-              <div>Password: <strong>BNnews@2323</strong></div>
-            </div>
           </div>
         )}
 

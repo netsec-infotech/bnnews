@@ -36,6 +36,7 @@ import api from '../../../lib/api';
 import RichNewsEditor from '../../../components/admin/RichNewsEditor';
 import MediaUploadPicker from '../../../components/common/MediaUploadPicker';
 import { useAuth } from '../../../context/AuthContext';
+import { getMediaUrl, normalizeArticleHtml } from '../../../lib/media';
 
 function PendingNewsContent() {
   const searchParams = useSearchParams();
@@ -219,7 +220,7 @@ function PendingNewsContent() {
     loadArticles();
   };
 
-  // AI Recreate News Action (CRITICAL REQUIREMENT)
+  // AI Recreate News Action (CRITICAL REQUIREMENT - Single Click Instant Generation)
   const handleAiRecreate = async () => {
     if (!reviewArticle) return;
     setAiRecreating(true);
@@ -230,7 +231,9 @@ function PendingNewsContent() {
         reviewArticle.content ||
         reviewArticle.originalDescriptionGu ||
         reviewArticle.descriptionGu ||
-        reviewArticle.titleGu;
+        reviewArticle.titleGu ||
+        formContent ||
+        formHeadlineGu;
 
       const res = await api.post('/admin/ai/recreate', {
         rawContent: sourceText,
@@ -243,7 +246,17 @@ function PendingNewsContent() {
         const d = res.data.data;
         if (d.headline) setFormHeadlineGu(d.headline);
         if (d.summary) setFormSummaryGu(d.summary);
-        if (d.body) setFormContent(d.body);
+        if (d.body) {
+          let formatted = d.body;
+          if (!formatted.includes('<p>') && !formatted.includes('<br>')) {
+            formatted = formatted
+              .split(/\n\n+/)
+              .filter((p: string) => p.trim())
+              .map((p: string) => `<p>${p.trim()}</p>`)
+              .join('');
+          }
+          setFormContent(formatted);
+        }
         if (d.seoTitle) setFormSeoTitle(d.seoTitle);
         if (d.seoDescription) setFormSeoDesc(d.seoDescription);
         setActionSuccess('AI દ્વારા સમાચાર સફળતાપૂર્વક પુનઃતૈયાર કરવામાં આવ્યા! સમીક્ષા કરીને સાચવો.');
@@ -707,7 +720,7 @@ function PendingNewsContent() {
                   <div
                     className="text-xs text-gray-700 bg-white p-3.5 rounded-xl border border-gray-200 leading-relaxed space-y-2 max-h-60 overflow-y-auto"
                     dangerouslySetInnerHTML={{
-                      __html: reviewArticle.originalContent || reviewArticle.content || 'કોઈ સામગ્રી નથી',
+                      __html: normalizeArticleHtml(reviewArticle.originalContent || reviewArticle.content) || 'કોઈ સામગ્રી નથી',
                     }}
                   />
                 </div>

@@ -13,13 +13,15 @@ import {
   PhoneCall,
   Image as ImageIcon,
   CheckCircle,
+  Sparkles,
+  Key,
 } from 'lucide-react';
 import api from '../../../lib/api';
 import MediaUploadPicker from '../../../components/common/MediaUploadPicker';
 
 export default function SettingsAdminPage() {
   const [activeTab, setActiveTab] = useState<
-    'general' | 'branding' | 'homepage' | 'social' | 'seo' | 'about' | 'contact'
+    'general' | 'branding' | 'homepage' | 'social' | 'seo' | 'about' | 'contact' | 'ai'
   >('general');
 
   const [settings, setSettings] = useState<Record<string, string>>({
@@ -123,6 +125,7 @@ export default function SettingsAdminPage() {
     { id: 'homepage', label: 'હોમપેજ કન્ફિગ (Homepage)', icon: Sliders },
     { id: 'social', label: 'સોશિયલ મીડિયા (Social)', icon: Share2 },
     { id: 'seo', label: 'SEO સેટિંગ્સ (SEO)', icon: Search },
+    { id: 'ai', label: 'AI અને API કી (Gemini)', icon: Sparkles },
     { id: 'about', label: 'અમારા વિશે CMS (About)', icon: FileText },
     { id: 'contact', label: 'સંપર્ક CMS (Contact)', icon: PhoneCall },
   ];
@@ -643,6 +646,62 @@ export default function SettingsAdminPage() {
                   placeholder="https://www.google.com/maps/embed?pb=..."
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs font-mono"
                 />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 8. AI & Gemini API Settings */}
+        {activeTab === 'ai' && (
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-neutral-text border-b pb-2 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#7C3AED]" />
+              <span>Google Gemini AI અને API કી રૂપરેખાંકન (AI Settings)</span>
+            </h3>
+
+            <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 space-y-1">
+              <div className="font-bold flex items-center gap-1.5">
+                <Key className="w-4 h-4 text-[#7C3AED]" />
+                <span>નવી Google Gemini API Key અહીં દાખલ કરો:</span>
+              </div>
+              <p className="text-purple-700 text-[11px]">
+                તમે Google AI Studio (aistudio.google.com/app/apikey) માંથી ફ્રી API Key મેળવીને અહીં દાખલ કરી શકો છો. અહીં સેવ કરવાથી તે તરત જ કાર્યરત થઈ જશે.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="md:col-span-2">
+                <label className="block font-bold text-gray-700 mb-1">
+                  Google Gemini API Key (AIzaSy...)
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={settings.gemini_api_key || ''}
+                    onChange={(e) => handleChange('gemini_api_key', e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full pl-9 pr-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs font-mono"
+                  />
+                  <Key className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  આ કી વડે પેન્ડિંગ સમાચાર પુનઃનિર્માણ (AI Recreator), લેખ જનરેશન અને અનુવાદ સ્વચાલિત થશે.
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  AI મોડેલ (Gemini Model)
+                </label>
+                <select
+                  value={settings.gemini_model || 'gemini-1.5-flash'}
+                  onChange={(e) => handleChange('gemini_model', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs bg-white font-mono"
+                >
+                  <option value="gemini-1.5-flash">gemini-1.5-flash (ભલામણ કરેલ - ઝડપી અને સચોટ)</option>
+                  <option value="gemini-2.0-flash">gemini-2.0-flash (નવીનતમ)</option>
+                  <option value="gemini-1.5-pro">gemini-1.5-pro (વિસ્તૃત પત્રકારત્વ વિશ્લેષણ)</option>
+                </select>
               </div>
             </div>
           </div>

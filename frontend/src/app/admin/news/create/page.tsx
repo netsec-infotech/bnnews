@@ -132,8 +132,10 @@ export default function CreateNewsPage() {
         content: textToRewrite,
         language: 'gu',
       });
-      if (res.data?.success && res.data.data?.body) {
-        setContent(res.data.data.body);
+      if (res.data?.success && res.data.data) {
+        const text = res.data.data.rewrittenContent || res.data.data.body || res.data.data.content;
+        if (text) setContent(text);
+        if (res.data.data.headline) setTitleGu(res.data.data.headline);
         setAiSuccess(true);
         setTimeout(() => setAiSuccess(false), 2500);
       }

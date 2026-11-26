@@ -1,15 +1,39 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config/index.js';
+import { prisma } from '../config/prisma.js';
 
 let genAI: GoogleGenerativeAI | null = null;
+let cachedKey: string | null = null;
 
-function getGenAI(): GoogleGenerativeAI {
-  if (!genAI) {
-    const apiKey = config.geminiApiKey;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured on the backend.');
+export async function getActiveGeminiApiKey(): Promise<string> {
+  // 1. Check if configured in website settings table (allowing live updates from Admin Settings UI)
+  try {
+    const dbSetting = await prisma.websiteSetting.findUnique({
+      where: { key: 'gemini_api_key' },
+    });
+    if (dbSetting?.value && dbSetting.value.trim().length > 10) {
+      return dbSetting.value.trim();
     }
+  } catch (err) {
+    // Continue to fallback
+  }
+
+  // 2. Check environment variable
+  const envKey = process.env.GEMINI_API_KEY || config.geminiApiKey;
+  if (envKey && envKey.trim().length > 10) {
+    return envKey.trim();
+  }
+
+  throw new Error(
+    'Google Gemini API Key રૂપરેખાંકિત નથી. કૃપા કરીને નવી API Key એડમિન સેટિંગ્સ (Settings -> AI) અથવા backend/.env માં GEMINI_API_KEY તરીકે દાખલ કરો.'
+  );
+}
+
+async function getGenAI(): Promise<GoogleGenerativeAI> {
+  const apiKey = await getActiveGeminiApiKey();
+  if (!genAI || cachedKey !== apiKey) {
     genAI = new GoogleGenerativeAI(apiKey);
+    cachedKey = apiKey;
   }
   return genAI;
 }
@@ -52,12 +76,17 @@ function extractJsonFromResponse(text: string): any {
  * Robust call with fallback models in case of quota / model changes
  */
 async function generateContentWithFallback(prompt: string): Promise<string> {
-  const ai = getGenAI();
-  const candidateModels = [
-    config.geminiModel || 'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-flash-latest',
-  ];
+  const ai = await getGenAI();
+  const configuredModel = config.geminiModel || 'gemini-1.5-flash';
+  const candidateModels = Array.from(
+    new Set([
+      configuredModel,
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-pro',
+      'gemini-flash-latest',
+    ])
+  );
 
   let lastError: any = null;
   for (const modelName of candidateModels) {

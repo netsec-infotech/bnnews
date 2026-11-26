@@ -30,7 +30,7 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import api from '../../lib/api';
-import { getMediaUrl } from '../../lib/media';
+import { getMediaUrl, normalizeArticleHtml } from '../../lib/media';
 
 interface RichNewsEditorProps {
   value: string;
@@ -66,11 +66,9 @@ export default function RichNewsEditor({
   // Synchronize incoming value with contentEditable innerHTML
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== (value || '')) {
-      if (document.activeElement !== editorRef.current) {
-        editorRef.current.innerHTML = value || '';
-      }
+      editorRef.current.innerHTML = value || '';
     }
-  }, [value]);
+  }, [value, activeTab]);
 
   const handleInput = () => {
     if (editorRef.current) {
@@ -503,7 +501,7 @@ export default function RichNewsEditor({
         ) : (
           <div
             className="prose max-w-none text-xs sm:text-sm leading-relaxed text-gray-800 [&>figure]:my-4 [&_img]:rounded-xl [&_img]:w-full [&_iframe]:w-full [&_iframe]:rounded-xl [&_iframe]:aspect-video"
-            dangerouslySetInnerHTML={{ __html: value || '<p className="text-gray-400">કોઈ સામગ્રી નથી</p>' }}
+            dangerouslySetInnerHTML={{ __html: normalizeArticleHtml(value) || '<p className="text-gray-400">કોઈ સામગ્રી નથી</p>' }}
           />
         )}
       </div>
@@ -574,9 +572,6 @@ export default function RichNewsEditor({
                   <img
                     src={getMediaUrl(imageUrl)}
                     alt="Preview"
-                    onError={(e) => {
-                      (e.target as any).src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80';
-                    }}
                     className="max-h-36 w-full object-contain"
                   />
                 </div>

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { NewsArticle } from '../../lib/types';
 import api from '../../lib/api';
-import { getMediaUrl } from '../../lib/media';
+import { getMediaUrl, normalizeArticleHtml } from '../../lib/media';
 import NewsCard from './NewsCard';
 import AdSlot from '../common/AdSlot';
 
@@ -238,7 +238,7 @@ export default function NewsDetailClient({
       {/* Editorial Content with Full Inline Images & Videos Support */}
       <div
         className="font-gujarati text-base md:text-lg leading-relaxed text-neutral-text space-y-4 pt-2 [&>p]:mb-4 [&>p]:leading-loose [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:mt-6 [&>h3]:text-xl [&>h3]:font-bold [&>figure]:my-6 [&_img]:rounded-2xl [&_img]:w-full [&_img]:shadow-xs [&_figcaption]:text-xs [&_figcaption]:text-gray-500 [&_figcaption]:mt-2 [&_figcaption]:text-center [&_figcaption]:font-medium [&_figcaption]:italic [&_iframe]:w-full [&_iframe]:rounded-2xl [&_iframe]:aspect-video [&_video]:w-full [&_video]:rounded-2xl [&_blockquote]:border-l-4 [&_blockquote]:border-[#ED1C2E] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-gray-200 [&_th]:bg-gray-50 [&_th]:p-2.5 [&_td]:border [&_td]:border-gray-200 [&_td]:p-2.5"
-        dangerouslySetInnerHTML={{ __html: article.content || '' }}
+        dangerouslySetInnerHTML={{ __html: normalizeArticleHtml(article.content) || '' }}
       />
 
       {/* Reporter Bio Box (if article has an assigned reporter) */}

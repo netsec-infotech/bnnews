@@ -1,17 +1,33 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const { hostname, port, protocol } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return port === '3100' ? 'http://localhost:5100/api' : 'http://localhost:5000/api';
+    }
+    if (hostname.includes('bnnewsgujarati.com')) {
+      return 'https://api.bnnewsgujarati.com/api';
+    }
+    return `${protocol}//api.${hostname.replace(/^www\./, '')}/api`;
+  }
+  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  return 'https://api.bnnewsgujarati.com/api';
+}
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor to inject JWT token in request headers
+// Interceptor to inject JWT token in request headers and ensure correct baseURL
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
+    config.baseURL = getApiBaseUrl();
     const token = localStorage.getItem('bn_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
