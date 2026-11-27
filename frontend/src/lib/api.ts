@@ -2,14 +2,12 @@ import axios from 'axios';
 
 export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    const { hostname, port, protocol } = window.location;
+    const { hostname, port } = window.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return port === '3100' ? 'http://localhost:5100/api' : 'http://localhost:5000/api';
     }
-    if (hostname.includes('bnnewsgujarati.com')) {
-      return 'https://bnnewsgujarati.com/api';
-    }
-    return `${protocol}//${window.location.host}/api`;
+    // In any live browser environment, relative '/api' is always the cleanest and safest
+    return '/api';
   }
   if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')) {
     return process.env.NEXT_PUBLIC_API_URL;

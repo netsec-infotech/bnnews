@@ -63,11 +63,11 @@ const authLimiter = rateLimit({
   max: 20, // limit each IP to 20 login requests per windowMs
   message: { success: false, message: 'ઘણા બધા લૉગિન પ્રયાસો. કૃપા કરીને થોડીવાર પછી પ્રયાસ કરો.' },
 });
-app.use('/api/auth/login', authLimiter);
+app.use(['/api/auth/login', '/auth/login'], authLimiter);
 
 // Serve Static Uploads with Cross-Origin headers
 app.use(
-  '/uploads',
+  ['/uploads', '/api/uploads'],
   (req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -79,7 +79,7 @@ app.use(
 );
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -88,10 +88,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes
+// API Routes - Mounted with both /api and root prefix to handle all proxy configurations
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/admin', adminRoutes);
+app.use('/admin', adminRoutes);
+
 app.use('/api', publicRoutes);
+app.use('/', publicRoutes);
 
 // 404 Handler
 app.use((req, res) => {
