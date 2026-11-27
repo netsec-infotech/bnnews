@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { MediaItem } from '../../../lib/types';
 import api from '../../../lib/api';
+import { getMediaUrl } from '../../../lib/media';
 
 export default function MediaLibraryAdminPage() {
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
@@ -76,7 +77,7 @@ export default function MediaLibraryAdminPage() {
   };
 
   const copyUrl = (id: string, url: string) => {
-    const fullUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+    const fullUrl = getMediaUrl(url);
     navigator.clipboard.writeText(fullUrl);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -223,15 +224,21 @@ export default function MediaLibraryAdminPage() {
                 className="group relative bg-gray-50 rounded-xl overflow-hidden border border-gray-200 aspect-square flex flex-col justify-between shadow-2xs hover:shadow-md transition-all"
               >
                 {isVideo ? (
-                  <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center p-2 text-white">
-                    <Film className="w-10 h-10 text-secondary mb-1" />
-                    <span className="text-[10px] text-gray-300 truncate max-w-full text-center">
+                  <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center p-2 text-white relative">
+                    <video
+                      src={getMediaUrl(item.url)}
+                      muted
+                      preload="metadata"
+                      className="absolute inset-0 w-full h-full object-cover opacity-70"
+                    />
+                    <Film className="w-10 h-10 text-secondary mb-1 relative z-10" />
+                    <span className="text-[10px] text-gray-200 truncate max-w-full text-center relative z-10 px-1 bg-black/50 rounded">
                       {item.originalName}
                     </span>
                   </div>
                 ) : (
                   <img
-                    src={item.thumbnailUrl || item.url}
+                    src={getMediaUrl(item.thumbnailUrl || item.url)}
                     alt={item.originalName}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -301,10 +308,10 @@ export default function MediaLibraryAdminPage() {
 
             <div className="rounded-xl overflow-hidden bg-gray-100 max-h-64 flex items-center justify-center">
               {selectedMedia.mimeType?.startsWith('video/') ? (
-                <video src={selectedMedia.url} controls className="max-h-64 w-full" />
+                <video src={getMediaUrl(selectedMedia.url)} controls className="max-h-64 w-full" />
               ) : (
                 <img
-                  src={selectedMedia.url}
+                  src={getMediaUrl(selectedMedia.url)}
                   alt={selectedMedia.originalName}
                   className="max-h-64 object-contain mx-auto"
                 />
@@ -344,7 +351,7 @@ export default function MediaLibraryAdminPage() {
                 <input
                   type="text"
                   readOnly
-                  value={selectedMedia.url}
+                  value={getMediaUrl(selectedMedia.url)}
                   className="w-full text-xs font-mono px-3 py-1.5 border rounded-lg bg-gray-100"
                 />
                 <button
