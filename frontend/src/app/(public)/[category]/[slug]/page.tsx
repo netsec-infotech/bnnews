@@ -9,7 +9,7 @@ const SITE_URL =
 const PUBLIC_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL && !process.env.NEXT_PUBLIC_BACKEND_URL.includes('localhost')
     ? process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, '')
-    : 'https://api.bnnewsgujarati.com';
+    : 'https://bnnewsgujarati.com';
 
 function stripHtml(html?: string | null): string {
   if (!html) return '';
@@ -49,7 +49,7 @@ async function fetchArticleBySlug(slug: string) {
   const candidateUrls = [
     `http://127.0.0.1:5000/api/news/${encodeURIComponent(slug)}`,
     `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')}/news/${encodeURIComponent(slug)}`,
-    `https://api.bnnewsgujarati.com/api/news/${encodeURIComponent(slug)}`,
+    `https://bnnewsgujarati.com/api/news/${encodeURIComponent(slug)}`,
   ];
 
   for (const url of candidateUrls) {

@@ -7,14 +7,14 @@ export function getApiBaseUrl(): string {
       return port === '3100' ? 'http://localhost:5100/api' : 'http://localhost:5000/api';
     }
     if (hostname.includes('bnnewsgujarati.com')) {
-      return 'https://api.bnnewsgujarati.com/api';
+      return 'https://bnnewsgujarati.com/api';
     }
-    return `${protocol}//api.${hostname.replace(/^www\./, '')}/api`;
+    return `${protocol}//${window.location.host}/api`;
   }
   if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  return 'https://api.bnnewsgujarati.com/api';
+  return 'https://bnnewsgujarati.com/api';
 }
 
 export const api = axios.create({

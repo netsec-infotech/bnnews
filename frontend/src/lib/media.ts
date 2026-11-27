@@ -1,22 +1,19 @@
 export function getBackendBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    const { hostname, port, protocol } = window.location;
+    const { hostname, port, protocol, host } = window.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return port === '3100' ? 'http://localhost:5100' : 'http://localhost:5000';
     }
-    // When on bnnewsgujarati.com or any of its subdomains
-    if (hostname.includes('bnnewsgujarati.com')) {
-      return 'https://api.bnnewsgujarati.com';
-    }
-    // For IP or other domain
-    return `${protocol}//api.${hostname.replace(/^www\./, '')}`;
+    // In production, everything (frontend, /api, /uploads) is on the same domain (e.g. https://bnnewsgujarati.com)
+    // Never use api.bnnewsgujarati.com
+    return `${protocol}//${host}`;
   }
 
   // SSR environment
   if (process.env.NEXT_PUBLIC_BACKEND_URL && !process.env.NEXT_PUBLIC_BACKEND_URL.includes('localhost')) {
-    return process.env.NEXT_PUBLIC_BACKEND_URL;
+    return process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, '');
   }
-  return 'https://api.bnnewsgujarati.com';
+  return 'https://bnnewsgujarati.com';
 }
 
 /**
@@ -34,6 +31,11 @@ export function getMediaUrl(url?: string | null): string {
     if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
       return url.replace(/http:\/\/localhost:(5000|5100)\/uploads\//, `${backendBase}/uploads/`);
     }
+  }
+
+  // Clean any legacy/erroneous api.bnnewsgujarati.com references
+  if (url.includes('api.bnnewsgujarati.com/uploads/')) {
+    return url.replace(/https?:\/\/api\.bnnewsgujarati\.com\/uploads\//g, `${backendBase}/uploads/`);
   }
 
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -60,6 +62,9 @@ export function normalizeArticleHtml(html?: string | null): string {
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     normalized = normalized.replace(/http:\/\/localhost:(5000|5100)\/uploads\//gi, `${backendBase}/uploads/`);
   }
+
+  // 3. Clean any legacy api.bnnewsgujarati.com in article content
+  normalized = normalized.replace(/https?:\/\/api\.bnnewsgujarati\.com\/uploads\//gi, `${backendBase}/uploads/`);
 
   return normalized;
 }
