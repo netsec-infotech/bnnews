@@ -694,13 +694,14 @@ export default function SettingsAdminPage() {
                   AI મોડેલ (Gemini Model)
                 </label>
                 <select
-                  value={settings.gemini_model || 'gemini-1.5-flash'}
+                  value={settings.gemini_model || 'auto'}
                   onChange={(e) => handleChange('gemini_model', e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary text-xs bg-white font-mono"
                 >
-                  <option value="gemini-1.5-flash">gemini-1.5-flash (ભલામણ કરેલ - ઝડપી અને સચોટ)</option>
-                  <option value="gemini-2.0-flash">gemini-2.0-flash (નવીનતમ)</option>
-                  <option value="gemini-1.5-pro">gemini-1.5-pro (વિસ્તૃત પત્રકારત્વ વિશ્લેષણ)</option>
+                  <option value="auto">Auto-Detect (તમારી API કી મુજબ શ્રેષ્ઠ મોડેલ આપમેળે પસંદ થશે - ભલામણ કરેલ)</option>
+                  <option value="gemini-2.5-flash">gemini-2.5-flash (ઝડપી અને નવીનતમ)</option>
+                  <option value="gemini-2.5-pro">gemini-2.5-pro (વિસ્તૃત Pro પત્રકારત્વ)</option>
+                  <option value="gemini-2.0-flash">gemini-2.0-flash (સ્ટેબલ)</option>
                 </select>
               </div>
             </div>

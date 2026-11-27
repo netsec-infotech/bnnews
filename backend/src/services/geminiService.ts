@@ -1,41 +1,144 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import axios from 'axios';
 import { config } from '../config/index.js';
 import { prisma } from '../config/prisma.js';
 
 let genAI: GoogleGenerativeAI | null = null;
 let cachedKey: string | null = null;
 
-export async function getActiveGeminiApiKey(): Promise<string> {
-  // 1. Check if configured in website settings table (allowing live updates from Admin Settings UI)
+// Cache discovered models per API key for 10 minutes
+let cachedModels: string[] = [];
+let cachedModelsKey: string | null = null;
+let cachedModelsAt = 0;
+const MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
+
+export async function getActiveGeminiConfig(): Promise<{ apiKey: string; preferredModel: string }> {
+  let apiKey = '';
+  let preferredModel = '';
+
   try {
-    const dbSetting = await prisma.websiteSetting.findUnique({
-      where: { key: 'gemini_api_key' },
+    const dbSettings = await prisma.websiteSetting.findMany({
+      where: { key: { in: ['gemini_api_key', 'gemini_model'] } },
     });
-    if (dbSetting?.value && dbSetting.value.trim().length > 10) {
-      return dbSetting.value.trim();
+    for (const s of dbSettings) {
+      if (s.key === 'gemini_api_key' && s.value?.trim().length > 10) {
+        apiKey = s.value.trim();
+      }
+      if (s.key === 'gemini_model' && s.value?.trim()) {
+        preferredModel = s.value.trim();
+      }
     }
-  } catch (err) {
-    // Continue to fallback
+  } catch {
+    // Continue to env fallback
   }
 
-  // 2. Check environment variable
-  const envKey = process.env.GEMINI_API_KEY || config.geminiApiKey;
-  if (envKey && envKey.trim().length > 10) {
-    return envKey.trim();
+  if (!apiKey) {
+    const envKey = process.env.GEMINI_API_KEY || config.geminiApiKey;
+    if (envKey && envKey.trim().length > 10) {
+      apiKey = envKey.trim();
+    }
   }
 
-  throw new Error(
-    'Google Gemini API Key રૂપરેખાંકિત નથી. કૃપા કરીને નવી API Key એડમિન સેટિંગ્સ (Settings -> AI) અથવા backend/.env માં GEMINI_API_KEY તરીકે દાખલ કરો.'
-  );
+  if (!apiKey) {
+    throw new Error(
+      'Google Gemini API Key રૂપરેખાંકિત નથી. કૃપા કરીને નવી API Key એડમિન સેટિંગ્સ (Settings -> AI) અથવા backend/.env માં GEMINI_API_KEY તરીકે દાખલ કરો.'
+    );
+  }
+
+  if (!preferredModel) {
+    preferredModel = process.env.GEMINI_MODEL || config.geminiModel || 'auto';
+  }
+
+  return { apiKey, preferredModel };
 }
 
-async function getGenAI(): Promise<GoogleGenerativeAI> {
-  const apiKey = await getActiveGeminiApiKey();
+export async function getActiveGeminiApiKey(): Promise<string> {
+  const { apiKey } = await getActiveGeminiConfig();
+  return apiKey;
+}
+
+async function getGenAI(): Promise<{ ai: GoogleGenerativeAI; apiKey: string; preferredModel: string }> {
+  const { apiKey, preferredModel } = await getActiveGeminiConfig();
   if (!genAI || cachedKey !== apiKey) {
     genAI = new GoogleGenerativeAI(apiKey);
     cachedKey = apiKey;
   }
-  return genAI;
+  return { ai: genAI, apiKey, preferredModel };
+}
+
+/**
+ * Dynamically calls Google's ModelService.ListModels for the active API key
+ * so we NEVER get 404 Not Found on deprecated/unavailable model names.
+ */
+export async function listAvailableGeminiModels(apiKey: string, forceRefresh = false): Promise<string[]> {
+  const now = Date.now();
+  if (
+    !forceRefresh &&
+    cachedModels.length > 0 &&
+    cachedModelsKey === apiKey &&
+    now - cachedModelsAt < MODEL_CACHE_TTL_MS
+  ) {
+    return cachedModels;
+  }
+
+  try {
+    const res = await axios.get(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=100`,
+      { timeout: 10000 }
+    );
+
+    const rawModels: any[] = res.data?.models || [];
+    const excludedTokens = [
+      'embedding',
+      'aqa',
+      'tts',
+      'image',
+      'robotics',
+      'computer-use',
+      'deep-research',
+      'vision',
+      'bisection',
+    ];
+
+    const validModels = rawModels
+      .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+      .map((m) => String(m.name || '').replace(/^models\//, ''))
+      .filter(
+        (name) =>
+          name.startsWith('gemini') &&
+          !excludedTokens.some((tok) => name.toLowerCase().includes(tok))
+      );
+
+    // Score models so latest stable flash/pro models are tried first
+    const scoreModel = (name: string): number => {
+      const n = name.toLowerCase();
+      if (n === 'gemini-2.5-flash') return 100;
+      if (n === 'gemini-2.5-pro') return 95;
+      if (n === 'gemini-2.0-flash') return 90;
+      if (n.includes('2.5') && n.includes('flash') && !n.includes('lite')) return 85;
+      if (n.includes('2.5') && n.includes('pro')) return 82;
+      if (n.includes('2.0') && n.includes('flash') && !n.includes('lite')) return 80;
+      if (n.includes('flash') && !n.includes('lite') && !n.includes('latest')) return 70;
+      if (n.includes('pro') && !n.includes('latest')) return 65;
+      if (n.includes('lite')) return 50;
+      if (n.includes('latest')) return 30;
+      return 40;
+    };
+
+    const sorted = Array.from(new Set(validModels)).sort((a, b) => scoreModel(b) - scoreModel(a));
+
+    if (sorted.length > 0) {
+      cachedModels = sorted;
+      cachedModelsKey = apiKey;
+      cachedModelsAt = now;
+      console.log(`[Gemini] Discovered ${sorted.length} active models for key: ${sorted.slice(0, 6).join(', ')}`);
+      return sorted;
+    }
+  } catch (err: any) {
+    console.warn('[Gemini] ListModels failed, using modern fallback candidates:', err.message);
+  }
+
+  return ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 }
 
 export interface GenerateNewsOptions {
@@ -73,20 +176,21 @@ function extractJsonFromResponse(text: string): any {
 }
 
 /**
- * Robust call with fallback models in case of quota / model changes
+ * Robust call with dynamic ListModels discovery + fallback across all available models
  */
 async function generateContentWithFallback(prompt: string): Promise<string> {
-  const ai = await getGenAI();
-  const configuredModel = config.geminiModel || 'gemini-1.5-flash';
+  const { ai, apiKey, preferredModel } = await getGenAI();
+  const discoveredModels = await listAvailableGeminiModels(apiKey);
+
+  // Put user's preferred model first ONLY if it exists in the API's active model list (or if not 'auto')
   const candidateModels = Array.from(
     new Set([
-      configuredModel,
-      'gemini-1.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash-8b',
-      'gemini-1.5-pro',
+      ...(preferredModel && preferredModel !== 'auto' && discoveredModels.includes(preferredModel)
+        ? [preferredModel]
+        : []),
+      ...discoveredModels,
     ])
-  );
+  ).slice(0, 6);
 
   let lastError: any = null;
   for (const modelName of candidateModels) {
@@ -99,18 +203,18 @@ async function generateContentWithFallback(prompt: string): Promise<string> {
         if (text) return text;
       } catch (err: any) {
         lastError = err;
+        const msg = String(err.message || '');
         const is503or429 =
-          err.message?.includes('503') ||
-          err.message?.includes('429') ||
-          err.message?.includes('high demand') ||
-          err.message?.includes('Overloaded');
+          msg.includes('503') ||
+          msg.includes('429') ||
+          msg.includes('high demand') ||
+          msg.includes('Overloaded');
 
         if (is503or429 && attempt === 0) {
-          // Brief backoff before retry or switching model
           await new Promise((resolve) => setTimeout(resolve, 1200));
           continue;
         }
-        console.warn(`[Gemini] Model ${modelName} encountered: ${err.message}. Trying next candidate if available...`);
+        console.warn(`[Gemini] Model ${modelName} encountered: ${msg}. Trying next candidate...`);
         break;
       }
     }
