@@ -611,14 +611,35 @@ export async function handleMetaOAuthCallback(code: string, state: string) {
  * Manual Page Connect with Page ID & Permanent Access Token
  */
 export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pageId: string, pageName: string, accessToken: string) {
+  let finalToken = accessToken.trim();
   let fetchedPageName = pageName;
   let profilePicture: string | undefined = undefined;
   let linkedIg: any = null;
 
   try {
     if (platform === 'FACEBOOK') {
+      // 1. Check if user accidentally pasted a User Token instead of Page Token
+      try {
+        const accountsRes = await axios.get(
+          `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,picture,instagram_business_account{id,username,name,profile_picture_url,followers_count}&access_token=${finalToken}`
+        );
+        if (accountsRes.data?.data && Array.isArray(accountsRes.data.data)) {
+          const match = accountsRes.data.data.find((p: any) => p.id === pageId) || accountsRes.data.data[0];
+          if (match?.access_token) {
+            console.log(`[Meta Direct] Auto-resolved User Token to Page Access Token for Page: ${match.name} (${match.id})`);
+            finalToken = match.access_token;
+            if (match.name) fetchedPageName = match.name;
+            if (match.picture?.data?.url) profilePicture = match.picture.data.url;
+            if (match.instagram_business_account) linkedIg = match.instagram_business_account;
+          }
+        }
+      } catch {
+        // If /me/accounts fails, it's already a direct Page Access Token
+      }
+
+      // 2. Fetch page info with the Page Token
       const pageInfo = await axios.get(
-        `https://graph.facebook.com/v20.0/${pageId}?fields=name,picture,instagram_business_account{id,username,name,profile_picture_url,followers_count}&access_token=${accessToken}`
+        `https://graph.facebook.com/v20.0/${pageId}?fields=name,picture,instagram_business_account{id,username,name,profile_picture_url,followers_count}&access_token=${finalToken}`
       );
       if (pageInfo.data?.name) fetchedPageName = pageInfo.data.name;
       if (pageInfo.data?.picture?.data?.url) profilePicture = pageInfo.data.picture.data.url;
@@ -627,13 +648,13 @@ export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pa
       }
     } else if (platform === 'INSTAGRAM') {
       const igInfo = await axios.get(
-        `https://graph.facebook.com/v20.0/${pageId}?fields=id,username,name,profile_picture_url,followers_count&access_token=${accessToken}`
+        `https://graph.facebook.com/v20.0/${pageId}?fields=id,username,name,profile_picture_url,followers_count&access_token=${finalToken}`
       );
       if (igInfo.data?.username) fetchedPageName = `@${igInfo.data.username}`;
       if (igInfo.data?.profile_picture_url) profilePicture = igInfo.data.profile_picture_url;
     }
   } catch (err: any) {
-    console.warn('[Meta Direct] Graph API info fetch warning:', err.message);
+    console.warn('[Meta Direct] Graph API info fetch warning:', err.response?.data?.error?.message || err.message);
   }
 
   const account = await prisma.socialAccount.upsert({
@@ -647,7 +668,7 @@ export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pa
       accountName: fetchedPageName,
       pageName: fetchedPageName,
       profilePicture,
-      accessToken: encryptToken(accessToken),
+      accessToken: encryptToken(finalToken),
       isConnected: true,
       status: 'ACTIVE',
       lastSyncedAt: new Date(),
@@ -660,7 +681,7 @@ export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pa
       accountName: fetchedPageName,
       pageName: fetchedPageName,
       profilePicture,
-      accessToken: encryptToken(accessToken),
+      accessToken: encryptToken(finalToken),
       isConnected: true,
       status: 'ACTIVE',
       lastSyncedAt: new Date(),
@@ -682,7 +703,7 @@ export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pa
           accountName: `@${linkedIg.username}`,
           pageName: linkedIg.name || linkedIg.username,
           profilePicture: linkedIg.profile_picture_url,
-          accessToken: encryptToken(accessToken),
+          accessToken: encryptToken(finalToken),
           isConnected: true,
           status: 'ACTIVE',
           lastSyncedAt: new Date(),
@@ -700,7 +721,7 @@ export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pa
           accountName: `@${linkedIg.username}`,
           pageName: linkedIg.name || linkedIg.username,
           profilePicture: linkedIg.profile_picture_url,
-          accessToken: encryptToken(accessToken),
+          accessToken: encryptToken(finalToken),
           isConnected: true,
           status: 'ACTIVE',
           lastSyncedAt: new Date(),
@@ -741,14 +762,67 @@ export async function syncFacebookFeed(accountId?: string) {
   const pageId = account.pageId;
   const accessToken = decryptToken(account.accessToken);
 
+  let activeToken = accessToken;
+
   try {
-    const feedRes = await axios.get(`https://graph.facebook.com/v20.0/${pageId}/published_posts`, {
-      params: {
-        fields: 'id,message,created_time,permalink_url,full_picture,attachments{media_type,url,subattachments}',
-        limit: 12,
-        access_token: accessToken,
-      },
-    });
+    let feedRes: any;
+    try {
+      feedRes = await axios.get(`https://graph.facebook.com/v20.0/${pageId}/published_posts`, {
+        params: {
+          fields: 'id,message,created_time,permalink_url,full_picture,attachments{media_type,url,subattachments}',
+          limit: 15,
+          access_token: activeToken,
+        },
+      });
+    } catch (apiErr: any) {
+      if (apiErr.response?.data?.error?.code === 210) {
+        // Error #210: User Token was passed instead of Page Token. Attempt auto-resolution via /me/accounts:
+        console.log('[Facebook Sync] Error #210 detected. Attempting to auto-resolve Page Access Token...');
+        const accRes = await axios.get(
+          `https://graph.facebook.com/v20.0/me/accounts?fields=id,access_token,name,instagram_business_account{id,username}&access_token=${activeToken}`
+        );
+        const pMatch = accRes.data?.data?.find((p: any) => p.id === pageId) || accRes.data?.data?.[0];
+        if (pMatch?.access_token) {
+          activeToken = pMatch.access_token;
+          await prisma.socialAccount.update({
+            where: { id: account.id },
+            data: { accessToken: encryptToken(activeToken), lastError: null },
+          });
+
+          // Also auto-connect linked Instagram if present!
+          if (pMatch.instagram_business_account) {
+            const ig = pMatch.instagram_business_account;
+            await prisma.socialAccount
+              .upsert({
+                where: { platform_pageId: { platform: 'INSTAGRAM', pageId: ig.id } },
+                update: { isConnected: true, status: 'ACTIVE', accessToken: encryptToken(activeToken) },
+                create: {
+                  platform: 'INSTAGRAM',
+                  pageId: ig.id,
+                  accountName: `@${ig.username}`,
+                  accessToken: encryptToken(activeToken),
+                  isConnected: true,
+                  status: 'ACTIVE',
+                },
+              })
+              .catch(() => {});
+          }
+
+          // Retry fetching posts with resolved Page Token
+          feedRes = await axios.get(`https://graph.facebook.com/v20.0/${pageId}/published_posts`, {
+            params: {
+              fields: 'id,message,created_time,permalink_url,full_picture,attachments{media_type,url,subattachments}',
+              limit: 15,
+              access_token: activeToken,
+            },
+          });
+        } else {
+          throw apiErr;
+        }
+      } else {
+        throw apiErr;
+      }
+    }
 
     const posts = feedRes.data.data || [];
     let synced = 0;
