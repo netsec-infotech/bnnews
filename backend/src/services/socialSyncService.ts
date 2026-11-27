@@ -611,6 +611,31 @@ export async function handleMetaOAuthCallback(code: string, state: string) {
  * Manual Page Connect with Page ID & Permanent Access Token
  */
 export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pageId: string, pageName: string, accessToken: string) {
+  let fetchedPageName = pageName;
+  let profilePicture: string | undefined = undefined;
+  let linkedIg: any = null;
+
+  try {
+    if (platform === 'FACEBOOK') {
+      const pageInfo = await axios.get(
+        `https://graph.facebook.com/v20.0/${pageId}?fields=name,picture,instagram_business_account{id,username,name,profile_picture_url,followers_count}&access_token=${accessToken}`
+      );
+      if (pageInfo.data?.name) fetchedPageName = pageInfo.data.name;
+      if (pageInfo.data?.picture?.data?.url) profilePicture = pageInfo.data.picture.data.url;
+      if (pageInfo.data?.instagram_business_account) {
+        linkedIg = pageInfo.data.instagram_business_account;
+      }
+    } else if (platform === 'INSTAGRAM') {
+      const igInfo = await axios.get(
+        `https://graph.facebook.com/v20.0/${pageId}?fields=id,username,name,profile_picture_url,followers_count&access_token=${accessToken}`
+      );
+      if (igInfo.data?.username) fetchedPageName = `@${igInfo.data.username}`;
+      if (igInfo.data?.profile_picture_url) profilePicture = igInfo.data.profile_picture_url;
+    }
+  } catch (err: any) {
+    console.warn('[Meta Direct] Graph API info fetch warning:', err.message);
+  }
+
   const account = await prisma.socialAccount.upsert({
     where: {
       platform_pageId: {
@@ -619,8 +644,9 @@ export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pa
       },
     },
     update: {
-      accountName: pageName,
-      pageName,
+      accountName: fetchedPageName,
+      pageName: fetchedPageName,
+      profilePicture,
       accessToken: encryptToken(accessToken),
       isConnected: true,
       status: 'ACTIVE',
@@ -631,14 +657,65 @@ export async function connectMetaManually(platform: 'FACEBOOK' | 'INSTAGRAM', pa
       platform,
       pageId,
       accountId: pageId,
-      accountName: pageName,
-      pageName,
+      accountName: fetchedPageName,
+      pageName: fetchedPageName,
+      profilePicture,
       accessToken: encryptToken(accessToken),
       isConnected: true,
       status: 'ACTIVE',
       lastSyncedAt: new Date(),
     },
   });
+
+  // If a linked Instagram account exists on this Facebook Page, connect it automatically!
+  if (linkedIg) {
+    try {
+      await prisma.socialAccount.upsert({
+        where: {
+          platform_pageId: {
+            platform: 'INSTAGRAM',
+            pageId: linkedIg.id,
+          },
+        },
+        update: {
+          accountId: linkedIg.id,
+          accountName: `@${linkedIg.username}`,
+          pageName: linkedIg.name || linkedIg.username,
+          profilePicture: linkedIg.profile_picture_url,
+          accessToken: encryptToken(accessToken),
+          isConnected: true,
+          status: 'ACTIVE',
+          lastSyncedAt: new Date(),
+          lastError: null,
+          metadata: {
+            username: linkedIg.username,
+            followersCount: linkedIg.followers_count || 0,
+            parentFacebookPageId: pageId,
+          },
+        },
+        create: {
+          platform: 'INSTAGRAM',
+          pageId: linkedIg.id,
+          accountId: linkedIg.id,
+          accountName: `@${linkedIg.username}`,
+          pageName: linkedIg.name || linkedIg.username,
+          profilePicture: linkedIg.profile_picture_url,
+          accessToken: encryptToken(accessToken),
+          isConnected: true,
+          status: 'ACTIVE',
+          lastSyncedAt: new Date(),
+          metadata: {
+            username: linkedIg.username,
+            followersCount: linkedIg.followers_count || 0,
+            parentFacebookPageId: pageId,
+          },
+        },
+      });
+      await syncInstagramMedia().catch(() => {});
+    } catch (igErr: any) {
+      console.warn('[Meta Direct] Auto-sync linked Instagram warning:', igErr.message);
+    }
+  }
 
   if (platform === 'FACEBOOK') {
     await syncFacebookFeed(account.id).catch(() => {});

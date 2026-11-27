@@ -924,6 +924,9 @@ export default function AdminSocialMediaPage() {
                   placeholder="EAA..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-[10px]"
                 ></textarea>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  💡 જો તમારું <strong>Instagram Business એકાઉન્ટ</strong> આ Facebook Page સાથે લિન્ક હશે, તો આ એક જ Page Token થી બંને (Facebook અને Instagram) આપમેળે કનેક્ટ થઈ જશે.
+                </p>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-2">

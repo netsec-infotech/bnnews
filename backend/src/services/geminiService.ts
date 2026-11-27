@@ -83,22 +83,46 @@ async function generateContentWithFallback(prompt: string): Promise<string> {
       configuredModel,
       'gemini-1.5-flash',
       'gemini-2.0-flash',
+      'gemini-1.5-flash-8b',
       'gemini-1.5-pro',
-      'gemini-flash-latest',
     ])
   );
 
   let lastError: any = null;
   for (const modelName of candidateModels) {
-    try {
-      const model = ai.getGenerativeModel({ model: modelName });
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      if (text) return text;
-    } catch (err: any) {
-      lastError = err;
-      console.warn(`[Gemini] Model ${modelName} encountered: ${err.message}. Trying next candidate if available...`);
+    // Try model with 1 retry on 503 (high demand) or 429
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const model = ai.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        if (text) return text;
+      } catch (err: any) {
+        lastError = err;
+        const is503or429 =
+          err.message?.includes('503') ||
+          err.message?.includes('429') ||
+          err.message?.includes('high demand') ||
+          err.message?.includes('Overloaded');
+
+        if (is503or429 && attempt === 0) {
+          // Brief backoff before retry or switching model
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          continue;
+        }
+        console.warn(`[Gemini] Model ${modelName} encountered: ${err.message}. Trying next candidate if available...`);
+        break;
+      }
     }
+  }
+
+  const isHighDemand =
+    lastError?.message?.includes('503') ||
+    lastError?.message?.includes('high demand') ||
+    lastError?.message?.includes('Overloaded');
+
+  if (isHighDemand) {
+    throw new Error('Google Gemini AI સર્વર પર અત્યારે અતિશય ટ્રાફિક છે. કૃપા કરીને થોડી સેકન્ડો પછી ફરી પ્રયાસ કરો.');
   }
 
   throw lastError || new Error('All Gemini model candidates failed.');

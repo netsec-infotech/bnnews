@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
 import NewsDetailClient from '../../../../components/public/NewsDetailClient';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  (process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '')
-    : 'https://api.bnnewsgujarati.com');
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://bnnewsgujarati.com';
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes('localhost')
+    ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, '')
+    : 'https://bnnewsgujarati.com';
+
+const PUBLIC_BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL && !process.env.NEXT_PUBLIC_BACKEND_URL.includes('localhost')
+    ? process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, '')
+    : 'https://api.bnnewsgujarati.com';
 
 function stripHtml(html?: string | null): string {
   if (!html) return '';
@@ -19,26 +21,51 @@ function stripHtml(html?: string | null): string {
 }
 
 function resolveAbsoluteImageUrl(img?: string | null): string {
-  if (!img) return `${SITE_URL}/logo.png`;
-  if (img.startsWith('http://') || img.startsWith('https://')) return img;
-  const clean = img.startsWith('/') ? img : `/${img}`;
+  if (!img || typeof img !== 'string') return `${SITE_URL}/logo.png`;
+  
+  let finalUrl = img.trim();
+
+  // If already an absolute URL
+  if (finalUrl.startsWith('http://') || finalUrl.startsWith('https://')) {
+    // If it points to localhost from a local dev db, rewrite to production backend
+    if (finalUrl.includes('localhost:5000/uploads/') || finalUrl.includes('localhost:5100/uploads/')) {
+      finalUrl = finalUrl.replace(/http:\/\/localhost:(5000|5100)\/uploads\//, `${PUBLIC_BACKEND_URL}/uploads/`);
+    }
+    // Meta / Facebook requires HTTPS for og:image to render preview cards reliably
+    if (finalUrl.startsWith('http://') && !finalUrl.includes('localhost')) {
+      finalUrl = finalUrl.replace(/^http:\/\//, 'https://');
+    }
+    return finalUrl;
+  }
+
+  const clean = finalUrl.startsWith('/') ? finalUrl : `/${finalUrl}`;
   if (clean.startsWith('/uploads/')) {
-    return `${BACKEND_URL}${clean}`;
+    return `${PUBLIC_BACKEND_URL}${clean}`;
   }
   return `${SITE_URL}${clean}`;
 }
 
 async function fetchArticleBySlug(slug: string) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/news/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json?.success ? json : null;
-  } catch {
-    return null;
+  const candidateUrls = [
+    `http://127.0.0.1:5000/api/news/${encodeURIComponent(slug)}`,
+    `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')}/news/${encodeURIComponent(slug)}`,
+    `https://api.bnnewsgujarati.com/api/news/${encodeURIComponent(slug)}`,
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        next: { revalidate: 60 },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.success && json?.data) return json;
+      }
+    } catch {
+      // try next candidate
+    }
   }
+  return null;
 }
 
 export async function generateMetadata({
@@ -75,10 +102,14 @@ export async function generateMetadata({
       siteName: 'BN NEWS ગુજરાતી',
       type: 'article',
       locale: 'gu_IN',
-      publishedTime: article.publishedAt || undefined,
+      publishedTime: article.publishedAt || article.createdAt || undefined,
+      modifiedTime: article.updatedAt || undefined,
+      authors: article.reporter?.name ? [article.reporter.name] : ['BN News Gujarati'],
+      section: params.category,
       images: [
         {
           url: imageUrl,
+          secureUrl: imageUrl.startsWith('http:') ? imageUrl.replace(/^http:/, 'https:') : imageUrl,
           width: 1200,
           height: 630,
           alt: title,
@@ -89,7 +120,12 @@ export async function generateMetadata({
       card: 'summary_large_image',
       title,
       description,
+      site: '@bnnewsgujarati',
+      creator: '@bnnewsgujarati',
       images: [imageUrl],
+    },
+    alternates: {
+      canonical: articleUrl,
     },
   };
 }
