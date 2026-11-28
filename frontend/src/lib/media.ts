@@ -2,7 +2,7 @@ export function getBackendBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const { hostname, port, protocol, host } = window.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return port === '3100' ? 'http://localhost:5100' : 'http://localhost:5000';
+      return port === '3100' ? 'http://localhost:5100' : 'http://localhost:5010';
     }
     // In production, everything (frontend, /api, /uploads) is on the same domain (e.g. https://bnnewsgujarati.com)
     // Never use api.bnnewsgujarati.com

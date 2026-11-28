@@ -47,8 +47,9 @@ function resolveAbsoluteImageUrl(img?: string | null): string {
 
 async function fetchArticleBySlug(slug: string) {
   const candidateUrls = [
+    `http://127.0.0.1:5010/api/news/${encodeURIComponent(slug)}`,
     `http://127.0.0.1:5000/api/news/${encodeURIComponent(slug)}`,
-    `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')}/news/${encodeURIComponent(slug)}`,
+    `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5010/api').replace(/\/+$/, '')}/news/${encodeURIComponent(slug)}`,
     `https://bnnewsgujarati.com/api/news/${encodeURIComponent(slug)}`,
   ];
 

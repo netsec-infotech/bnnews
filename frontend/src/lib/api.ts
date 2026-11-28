@@ -4,7 +4,7 @@ export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const { hostname, port } = window.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return port === '3100' ? 'http://localhost:5100/api' : 'http://localhost:5000/api';
+      return port === '3100' ? 'http://localhost:5100/api' : 'http://localhost:5010/api';
     }
     // In any live browser environment, relative '/api' is always the cleanest and safest
     return '/api';
