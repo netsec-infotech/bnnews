@@ -33,6 +33,8 @@ app.use(
   cors({
     origin: [
       config.frontendUrl,
+      'http://localhost:3010',
+      'http://127.0.0.1:3010',
       'http://localhost:3000',
       'http://localhost:3100',
       'https://bnnewsgujarati.com',

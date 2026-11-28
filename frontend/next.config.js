@@ -7,6 +7,15 @@ const nextConfig = {
       { protocol: 'https', hostname: '**' },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/login',
+        destination: '/admin/login',
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     // Internal backend URL for Next.js server-side proxying (port 5010 on VPS)
     const backendUrl = process.env.INTERNAL_BACKEND_URL || 'http://127.0.0.1:5010';
